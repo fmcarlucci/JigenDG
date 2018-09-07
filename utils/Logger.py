@@ -59,11 +59,16 @@ class Logger():
 
     def log_test(self, phase, accuracies):
         print("Accuracies on %s: " % phase + ", ".join(["%s : %f" % (k, v) for k, v in accuracies.items()]))
-        if phase=="test":  # TODO: remove this hacky stuff
+        if phase == "test":  # TODO: remove this hacky stuff
             for k, v in accuracies.items():
                 self.val_acc[k].append(v)
         if self.tf_logger:
             for k, v in accuracies.items(): self.tf_logger.scalar_summary("%s/acc_%s" % (phase, k), v, self.current_iter)
+
+    def save_best(self, val_test, best_test):
+        if self.tf_logger:
+            self.tf_logger.scalar_summary("best/from_val_test", val_test, 0)
+            self.tf_logger.scalar_summary("best/max_test", best_test, 0)
 
     @staticmethod
     def get_name_from_args(args):

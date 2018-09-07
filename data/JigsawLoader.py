@@ -59,8 +59,8 @@ class JigsawDataset(data.Dataset):
             transforms.RandomResizedCrop(255, (0.8, 1.0))]
         )
         self._augment_tile = transforms.Compose([
-            # transforms.RandomResizedCrop(75,(0.8, 1.0)),
-            transforms.Resize((75, 75), Image.BILINEAR),
+            transforms.RandomResizedCrop(75,(0.8, 1.0)),
+            # transforms.Resize((75, 75), Image.BILINEAR),
             #             transforms.ColorJitter(0.1, 0.1, 0.1, 0.1),
             transforms.RandomGrayscale(0.1),
             transforms.ToTensor(),
