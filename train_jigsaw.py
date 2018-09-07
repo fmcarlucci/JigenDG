@@ -21,6 +21,7 @@ def get_args():
     parser.add_argument("--jigsaw_n_classes", "-jc", type=int, default=31, help="Number of classes for the jigsaw task")
     parser.add_argument("--network", choices=model_factory.nets_map.keys(), help="Which network to use", default="caffenet")
     parser.add_argument("--jig_weight", type=float, default=0.1, help="Weight for the jigsaw puzzle")
+    parser.add_argument("--tf_logger", type=bool, default=True, help="If true will save tensorboard compatible logs")
     return parser.parse_args()
 
 
@@ -34,8 +35,9 @@ class Trainer:
         model = model_factory.get_network(args.network)(jigsaw_classes=args.jigsaw_n_classes + 1, classes=args.n_classes)
         self.model = model.to(device)
         print(self.model)
-        self.source_loader, self.val_loader = data_helper.get_dataloader(args.source, args.jigsaw_n_classes, "train")
-        self.target_loader = data_helper.get_dataloader(args.target, args.jigsaw_n_classes, "val")
+        self.source_loader, self.val_loader = data_helper.get_train_dataloader(args.source, args.jigsaw_n_classes)
+        self.target_loader = data_helper.get_val_dataloader(args.target, args.jigsaw_n_classes)
+        print("Dataset size: train %d, val %d, test %d" % (len(self.source_loader.dataset), len(self.val_loader.dataset), len(self.target_loader.dataset)))
         self.optimizer, self.scheduler = get_optim_and_scheduler(model, args.epochs, args.learning_rate)
         self.jig_weight = args.jig_weight
         if args.target in args.source:

@@ -19,8 +19,11 @@ class Logger():
         self.val_acc = {"jigsaw": [], "class": []}
         folder, logname = self.get_name_from_args(args)
         log_path = join(_log_path, folder, logname)
-        self.tf_logger = TFLogger(log_path)
-        print("Saving to %s" % log_path)
+        if args.tf_logger:
+            self.tf_logger = TFLogger(log_path)
+            print("Saving to %s" % log_path)
+        else:
+            self.tf_logger = None
         self.current_iter = 0
 
     def new_epoch(self, learning_rates):
@@ -29,8 +32,9 @@ class Logger():
         self.lrs = learning_rates
         print("New epoch - lr: %s" % ", ".join([str(lr) for lr in self.lrs]))
         self._clean_epoch_stats()
-        for n, v in enumerate(self.lrs):
-            self.tf_logger.scalar_summary("aux/lr%d" % n, v, self.current_iter)
+        if self.tf_logger:
+            for n, v in enumerate(self.lrs):
+                self.tf_logger.scalar_summary("aux/lr%d" % n, v, self.current_iter)
 
     def log(self, it, iters, losses, samples_right, total_samples):
         self.current_iter += 1
@@ -46,7 +50,8 @@ class Logger():
             for k, v in losses.items():
                 self.losses[k].append(v)
             # update tf log
-            for k, v in losses.items(): self.tf_logger.scalar_summary("train/loss_%s" % k, v, self.current_iter)
+            if self.tf_logger:
+                for k, v in losses.items(): self.tf_logger.scalar_summary("train/loss_%s" % k, v, self.current_iter)
 
     def _clean_epoch_stats(self):
         self.epoch_stats = {}

@@ -16,7 +16,7 @@ def get_random_subset(names, labels, percent):
     :return:
     """
     samples = len(names)
-    amount = samples * percent
+    amount = int(samples * percent)
     random_index = sample(range(samples), amount)
     name_val = [names[k] for k in random_index]
     name_train = [v for k, v in enumerate(names) if k not in random_index]
@@ -71,9 +71,7 @@ class JigsawDataset(data.Dataset):
         else:
             def make_grid(x):
                 return torchvision.utils.make_grid(x, self.grid_size, padding=0)
-
         self.returnFunc = make_grid
-        return val_names, val_labels
 
     def __getitem__(self, index):
         framename = self.data_path + '/' + self.names[index]
