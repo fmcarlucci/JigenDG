@@ -22,6 +22,7 @@ def get_args():
     parser.add_argument("--network", choices=model_factory.nets_map.keys(), help="Which network to use", default="caffenet")
     parser.add_argument("--jig_weight", type=float, default=0.1, help="Weight for the jigsaw puzzle")
     parser.add_argument("--tf_logger", type=bool, default=True, help="If true will save tensorboard compatible logs")
+    parser.add_argument("--val_size", type=float, default="0.1", help="Validation size (between 0 and 1)")
     return parser.parse_args()
 
 
@@ -35,8 +36,9 @@ class Trainer:
         model = model_factory.get_network(args.network)(jigsaw_classes=args.jigsaw_n_classes + 1, classes=args.n_classes)
         self.model = model.to(device)
         print(self.model)
-        self.source_loader, self.val_loader = data_helper.get_train_dataloader(args.source, args.jigsaw_n_classes)
+        self.source_loader, self.val_loader = data_helper.get_train_dataloader(args.source, args.jigsaw_n_classes, val_size=args.val_size)
         self.target_loader = data_helper.get_val_dataloader(args.target, args.jigsaw_n_classes)
+        self.test_loaders = {"val": self.val_loader, "test": self.target_loader}
         print("Dataset size: train %d, val %d, test %d" % (len(self.source_loader.dataset), len(self.val_loader.dataset), len(self.target_loader.dataset)))
         self.optimizer, self.scheduler = get_optim_and_scheduler(model, args.epochs, args.learning_rate)
         self.jig_weight = args.jig_weight
@@ -70,26 +72,34 @@ class Trainer:
 
         self.model.eval()
         with torch.no_grad():
-            jigsaw_correct = 0
-            class_correct = 0
-            total = 0
-            for it, ((data, jig_l, class_l), d_idx) in enumerate(self.target_loader):
-                data, jig_l, class_l = data.to(self.device), jig_l.to(self.device), class_l.to(self.device)
-                jigsaw_logit, class_logit = self.model(data)
-                _, cls_pred = class_logit.max(dim=1)
-                _, jig_pred = jigsaw_logit.max(dim=1)
-                class_correct += torch.sum(cls_pred == class_l.data)
-                jigsaw_correct += torch.sum(jig_pred == jig_l.data)
-                total += data.shape[0]
-            self.logger.log_test({"jigsaw": float(jigsaw_correct) / total,
-                                      "class": float(class_correct) / total})
+            for phase, loader in self.test_loaders.items():
+                jigsaw_correct = 0
+                class_correct = 0
+                total = 0
+                for it, ((data, jig_l, class_l), d_idx) in enumerate(loader):
+                    data, jig_l, class_l = data.to(self.device), jig_l.to(self.device), class_l.to(self.device)
+                    jigsaw_logit, class_logit = self.model(data)
+                    _, cls_pred = class_logit.max(dim=1)
+                    _, jig_pred = jigsaw_logit.max(dim=1)
+                    class_correct += torch.sum(cls_pred == class_l.data)
+                    jigsaw_correct += torch.sum(jig_pred == jig_l.data)
+                    total += data.shape[0]
+                jigsaw_acc = float(jigsaw_correct) / total
+                class_acc = float(class_correct) / total
+                self.logger.log_test(phase, {"jigsaw": jigsaw_acc, "class": class_acc})
+                self.results[phase][self.current_epoch] = class_acc
 
     def do_training(self):
         self.logger = Logger(self.args)
-        for k in range(self.args.epochs):
+        self.results = {"val":torch.zeros(self.args.epochs), "test": torch.zeros(self.args.epochs)}
+        for self.current_epoch in range(self.args.epochs):
             self.scheduler.step()
             self.logger.new_epoch(self.scheduler.get_lr())
             self._do_epoch()
+        val_res = self.results["val"]
+        test_res = self.results["test"]
+        idx_best = val_res.argmax()
+        print("Best val %g, corresponding test %g - best test: %g" % (val_res.max(), test_res[idx_best], test_res.max()))
         return self.logger, self.model
 
 

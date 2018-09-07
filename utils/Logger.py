@@ -57,11 +57,13 @@ class Logger():
         self.epoch_stats = {}
         self.total = 0
 
-    def log_test(self, accuracies):
-        print("Accuracies on target: " + ", ".join(["%s : %f" % (k, v) for k, v in accuracies.items()]))
-        for k, v in accuracies.items():
-            self.val_acc[k].append(v)
-        for k, v in accuracies.items(): self.tf_logger.scalar_summary("test/acc_%s" % k, v, self.current_iter)
+    def log_test(self, phase, accuracies):
+        print("Accuracies on %s: " % phase + ", ".join(["%s : %f" % (k, v) for k, v in accuracies.items()]))
+        if phase=="test":  # TODO: remove this hacky stuff
+            for k, v in accuracies.items():
+                self.val_acc[k].append(v)
+        if self.tf_logger:
+            for k, v in accuracies.items(): self.tf_logger.scalar_summary("%s/acc_%s" % (phase, k), v, self.current_iter)
 
     @staticmethod
     def get_name_from_args(args):
