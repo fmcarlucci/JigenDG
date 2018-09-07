@@ -12,7 +12,7 @@ from utils.Logger import Logger
 
 def get_args():
     parser = argparse.ArgumentParser(description="Script to launch jigsaw training", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument("--source", choices=available_datasets, help="Source")
+    parser.add_argument("--source", choices=available_datasets, help="Source", nargs='+')
     parser.add_argument("--target", choices=available_datasets, help="Target")
     parser.add_argument("--batch_size", "-b", type=int, default=64, help="Batch size")
     parser.add_argument("--learning_rate", "-l", type=float, default=.01, help="Learning rate")
