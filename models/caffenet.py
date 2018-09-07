@@ -11,6 +11,7 @@ from models.alexnet import Id
 class AlexNetCaffe(nn.Module):
     def __init__(self, jigsaw_classes=1000, n_classes=100, dropout=True):
         super(AlexNetCaffe, self).__init__()
+        print("Using Caffe AlexNet")
         self.features = nn.Sequential(OrderedDict([
             ("conv1", nn.Conv2d(3, 96, kernel_size=11, stride=4)),
             ("relu1", nn.ReLU(inplace=True)),
@@ -45,7 +46,7 @@ class AlexNetCaffe(nn.Module):
                            ,self.class_classifier.parameters()), "lr": base_lr}]
 
     def forward(self, x):
-        x = self.features(255. * x)
+        x = self.features(x)
         x = x.view(x.size(0), -1)
         x = self.classifier(x)
         return self.jigsaw_classifier(x), self.class_classifier(x)
