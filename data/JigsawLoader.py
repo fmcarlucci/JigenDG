@@ -4,7 +4,7 @@ import torch.utils.data as data
 import torchvision
 import torchvision.transforms as transforms
 from PIL import Image
-from random import sample
+from random import sample, random
 
 
 def get_random_subset(names, labels, percent):
@@ -45,7 +45,7 @@ def get_split_dataset_info(txt_list, val_percentage):
 
 
 class JigsawDataset(data.Dataset):
-    def __init__(self, names, labels, classes=100, patches=True):
+    def __init__(self, names, labels, classes=100, patches=True, bias_whole_image=None):
         self.data_path = ""
         self.names = names
         self.labels = labels
@@ -53,15 +53,16 @@ class JigsawDataset(data.Dataset):
         self.N = len(self.names)
         self.permutations = self.__retrieve_permutations(classes)
         self.grid_size = 3
+        self.bias_whole_image = bias_whole_image
 
         self._image_transformer = transforms.Compose([
             #             transforms.Resize(256, Image.BILINEAR),
             transforms.RandomResizedCrop(255, (0.8, 1.0))]
         )
         self._augment_tile = transforms.Compose([
-            transforms.RandomResizedCrop(75,(0.8, 1.0)),
-            # transforms.Resize((75, 75), Image.BILINEAR),
-            #             transforms.ColorJitter(0.1, 0.1, 0.1, 0.1),
+            # transforms.RandomResizedCrop(75,(0.8, 1.0)),
+            transforms.Resize((75, 75), Image.BILINEAR),
+            # transforms.ColorJitter(0.1, 0.1, 0.1, 0.1),
             transforms.RandomGrayscale(0.1),
             transforms.ToTensor(),
             transforms.Normalize([0.485, 0.456, 0.406], std=[1 / 256., 1 / 256., 1 / 256.])  # [0.229, 0.224, 0.225]
@@ -89,6 +90,9 @@ class JigsawDataset(data.Dataset):
             tiles[n] = tile
 
         order = np.random.randint(len(self.permutations) + 1)  # added 1 for class 0: unsorted
+        if self.bias_whole_image:
+            if self.bias_whole_image > random():
+                order = 0
         if order == 0:
             data = tiles
         else:

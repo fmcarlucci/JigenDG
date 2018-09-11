@@ -23,6 +23,10 @@ def get_args():
     parser.add_argument("--jig_weight", type=float, default=0.1, help="Weight for the jigsaw puzzle")
     parser.add_argument("--tf_logger", type=bool, default=True, help="If true will save tensorboard compatible logs")
     parser.add_argument("--val_size", type=float, default="0.1", help="Validation size (between 0 and 1)")
+    parser.add_argument("--folder_name", default=None, help="Used by the logger to save logs")
+    parser.add_argument("--bias_whole_image", default=None, type=float, help="If set, will bias the training procedure to show more often the whole image")
+    parser.add_argument("--classify_only_sane", default=False, type=bool, 
+                        help="If true, the network will only try to classify the non scrambled images")
     return parser.parse_args()
 
 
@@ -35,17 +39,18 @@ class Trainer:
         self.device = device
         model = model_factory.get_network(args.network)(jigsaw_classes=args.jigsaw_n_classes + 1, classes=args.n_classes)
         self.model = model.to(device)
-        print(self.model)
-        self.source_loader, self.val_loader = data_helper.get_train_dataloader(args.source, args.jigsaw_n_classes, val_size=args.val_size)
+        #print(self.model)
+        self.source_loader, self.val_loader = data_helper.get_train_dataloader(args.source, args.jigsaw_n_classes, val_size=args.val_size, bias_whole_image=args.bias_whole_image)
         self.target_loader = data_helper.get_val_dataloader(args.target, args.jigsaw_n_classes)
         self.test_loaders = {"val": self.val_loader, "test": self.target_loader}
         print("Dataset size: train %d, val %d, test %d" % (len(self.source_loader.dataset), len(self.val_loader.dataset), len(self.target_loader.dataset)))
         self.optimizer, self.scheduler = get_optim_and_scheduler(model, args.epochs, args.learning_rate)
         self.jig_weight = args.jig_weight
+        self.only_non_scrambled = args.classify_only_sane
         if args.target in args.source:
             self.target_id = args.source.index(args.target)
         else:
-            self.target_id = len(args.source)
+            self.target_id = None
 
     def _do_epoch(self):
         criterion = nn.CrossEntropyLoss()
@@ -57,7 +62,12 @@ class Trainer:
 
             jigsaw_logit, class_logit = self.model(data)
             jigsaw_loss = criterion(jigsaw_logit, jig_l)
-            class_loss = criterion(class_logit[d_idx != self.target_id], class_l[d_idx != self.target_id])
+            if self.only_non_scrambled:
+                class_loss = criterion(class_logit[jig_l == 0], class_l[jig_l == 0])
+            elif self.target_id:
+                class_loss = criterion(class_logit[d_idx != self.target_id], class_l[d_idx != self.target_id])
+            else:
+                class_loss = criterion(class_logit, class_l)
             _, cls_pred = class_logit.max(dim=1)
             _, jig_pred = jigsaw_logit.max(dim=1)
             loss = class_loss + jigsaw_loss * self.jig_weight
@@ -90,7 +100,7 @@ class Trainer:
                 self.results[phase][self.current_epoch] = class_acc
 
     def do_training(self):
-        self.logger = Logger(self.args)
+        self.logger = Logger(self.args, update_frequency=30)
         self.results = {"val":torch.zeros(self.args.epochs), "test": torch.zeros(self.args.epochs)}
         for self.current_epoch in range(self.args.epochs):
             self.scheduler.step()

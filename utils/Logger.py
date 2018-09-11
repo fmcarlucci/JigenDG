@@ -67,12 +67,19 @@ class Logger():
 
     def save_best(self, val_test, best_test):
         if self.tf_logger:
-            self.tf_logger.scalar_summary("best/from_val_test", val_test, 0)
-            self.tf_logger.scalar_summary("best/max_test", best_test, 0)
+            for x in range(10):
+                self.tf_logger.scalar_summary("best/from_val_test", val_test, x)
+                self.tf_logger.scalar_summary("best/max_test", best_test, x)
 
     @staticmethod
     def get_name_from_args(args):
         folder_name = "%s_to_%s" % ("-".join(sorted(args.source)), args.target)
+        if args.folder_name:
+            folder_name = join(args.folder_name, folder_name)
         name = "eps%d_bs%d_lr%g_class%d_jigClass%d_jigWeight%g_%d" % (args.epochs, args.batch_size, args.learning_rate, args.n_classes,
                                                                       args.jigsaw_n_classes, args.jig_weight, int(time() % 1000))
+        if args.bias_whole_image:
+            name += "_bias%g" % args.bias_whole_image
+        if args.classify_only_sane:
+            name += "_classifyOnlySane"
         return folder_name, name

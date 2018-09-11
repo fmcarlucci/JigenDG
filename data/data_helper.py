@@ -32,12 +32,12 @@ def get_dual_dataloaders(dataset_names, jig_classes, phase, batch_size=128):
         return DataLoader(standard_dataset, batch_size=batch_size, shuffle=False, num_workers=4, pin_memory=True, drop_last=False)
 
 
-def get_train_dataloader(dataset_name, jig_classes, batch_size=128, val_size=0.0):
+def get_train_dataloader(dataset_name, jig_classes, batch_size=128, val_size=0.0, bias_whole_image=None):
     datasets = []
     val_datasets = []
     for dname in dataset_name:
         name_train, name_val, labels_train, labels_val = get_split_dataset_info(join(dirname(__file__), 'txt_lists', '%s_train.txt' % dname), val_size)
-        datasets.append(JigsawDataset(name_train, labels_train, patches=False, classes=jig_classes))
+        datasets.append(JigsawDataset(name_train, labels_train, patches=False, classes=jig_classes, bias_whole_image=bias_whole_image))
         val_datasets.append(JigsawTestDataset(name_val, labels_val, patches=False, classes=jig_classes))
     dataset = ConcatDataset(datasets)
     val_dataset = ConcatDataset(val_datasets)
