@@ -76,10 +76,13 @@ class Logger():
         folder_name = "%s_to_%s" % ("-".join(sorted(args.source)), args.target)
         if args.folder_name:
             folder_name = join(args.folder_name, folder_name)
-        name = "eps%d_bs%d_lr%g_class%d_jigClass%d_jigWeight%g_%d" % (args.epochs, args.batch_size, args.learning_rate, args.n_classes,
-                                                                      args.jigsaw_n_classes, args.jig_weight, int(time() % 1000))
+        name = "eps%d_bs%d_lr%g_class%d_jigClass%d_jigWeight%g" % (args.epochs, args.batch_size, args.learning_rate, args.n_classes,
+                                                                      args.jigsaw_n_classes, args.jig_weight)
         if args.bias_whole_image:
             name += "_bias%g" % args.bias_whole_image
         if args.classify_only_sane:
             name += "_classifyOnlySane"
+        if args.TTA:
+            name += "_TTA"
+        name += "_%d" % int(time() % 1000)
         return folder_name, name

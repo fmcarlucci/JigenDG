@@ -143,3 +143,48 @@ class JigsawTestDataset(JigsawDataset):
 
         data = torch.stack(tiles, 0)
         return self.returnFunc(data), 0, int(self.labels[index])
+
+
+class JigsawTestDatasetMultiple(JigsawDataset):
+    def __init__(self, *args, **xargs):
+        super().__init__(*args, **xargs)
+        self._image_transformer = transforms.Compose([
+            transforms.Resize(255, Image.BILINEAR),
+        ])
+        self._image_transformer_full = transforms.Compose([
+            transforms.Resize(225, Image.BILINEAR),
+            transforms.ToTensor(),
+            transforms.Normalize([0.485, 0.456, 0.406], [1 / 256., 1 / 256., 1 / 256.])
+        ])
+        self._augment_tile = transforms.Compose([
+            transforms.Resize((75, 75), Image.BILINEAR),
+            transforms.ToTensor(),
+            transforms.Normalize([0.485, 0.456, 0.406], [1 / 256., 1 / 256., 1 / 256.])
+        ])
+
+    def __getitem__(self, index):
+        framename = self.data_path + '/' + self.names[index]
+        _img = Image.open(framename).convert('RGB')
+        img = self._image_transformer(_img)
+
+        w = float(img.size[0]) / self.grid_size
+        n_grids = self.grid_size ** 2
+        tiles = [None] * n_grids
+        images = []
+        jig_labels = []
+        images.append(self._image_transformer_full(_img))
+        jig_labels.append(0)
+        for order in range(0, len(self.permutations), 3):
+            for n in range(n_grids):
+                y = int(n / self.grid_size)
+                x = n % self.grid_size
+                tile = img.crop([x * w, y * w, (x + 1) * w, (y + 1) * w])
+                tile = self._augment_tile(tile)
+                tiles[n] = tile
+            data = [tiles[self.permutations[order][t]] for t in range(n_grids)]
+            data = self.returnFunc(torch.stack(data, 0))
+            images.append(data)
+            jig_labels.append(order + 1)
+        images = torch.stack(images, 0)
+        jig_labels = torch.LongTensor(jig_labels)
+        return images, jig_labels, int(self.labels[index])

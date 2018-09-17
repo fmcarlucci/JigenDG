@@ -3,8 +3,10 @@ import warnings
 
 from torch.utils.data import Dataset
 
-
 # This is a small variant of the ConcatDataset class, which also returns dataset index
+from data.JigsawLoader import JigsawTestDatasetMultiple
+
+
 class ConcatDataset(Dataset):
     """
     Dataset to concatenate multiple datasets.
@@ -24,6 +26,9 @@ class ConcatDataset(Dataset):
             r.append(l + s)
             s += l
         return r
+
+    def isMulti(self):
+        return isinstance(self.datasets[0], JigsawTestDatasetMultiple)
 
     def __init__(self, datasets):
         super(ConcatDataset, self).__init__()

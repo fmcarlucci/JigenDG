@@ -2,8 +2,9 @@ import argparse
 
 import torch
 from torch import nn
-
+from torch.nn import functional as F
 from data import data_helper
+# from IPython.core.debugger import set_trace
 from data.data_helper import available_datasets
 from models import model_factory
 from optimizer.optimizer_helper import get_optim_and_scheduler
@@ -25,7 +26,8 @@ def get_args():
     parser.add_argument("--val_size", type=float, default="0.1", help="Validation size (between 0 and 1)")
     parser.add_argument("--folder_name", default=None, help="Used by the logger to save logs")
     parser.add_argument("--bias_whole_image", default=None, type=float, help="If set, will bias the training procedure to show more often the whole image")
-    parser.add_argument("--classify_only_sane", default=False, type=bool, 
+    parser.add_argument("--TTA", type=bool, default=False, help="Activate test time data augmentation")
+    parser.add_argument("--classify_only_sane", default=False, type=bool,
                         help="If true, the network will only try to classify the non scrambled images")
     return parser.parse_args()
 
@@ -39,14 +41,16 @@ class Trainer:
         self.device = device
         model = model_factory.get_network(args.network)(jigsaw_classes=args.jigsaw_n_classes + 1, classes=args.n_classes)
         self.model = model.to(device)
-        #print(self.model)
-        self.source_loader, self.val_loader = data_helper.get_train_dataloader(args.source, args.jigsaw_n_classes, val_size=args.val_size, bias_whole_image=args.bias_whole_image)
-        self.target_loader = data_helper.get_val_dataloader(args.target, args.jigsaw_n_classes)
+        # print(self.model)
+        self.source_loader, self.val_loader = data_helper.get_train_dataloader(args.source, args.jigsaw_n_classes, val_size=args.val_size,
+                                                                               bias_whole_image=args.bias_whole_image)
+        self.target_loader = data_helper.get_val_dataloader(args.target, args.jigsaw_n_classes, multi=args.TTA)
         self.test_loaders = {"val": self.val_loader, "test": self.target_loader}
         print("Dataset size: train %d, val %d, test %d" % (len(self.source_loader.dataset), len(self.val_loader.dataset), len(self.target_loader.dataset)))
         self.optimizer, self.scheduler = get_optim_and_scheduler(model, args.epochs, args.learning_rate)
         self.jig_weight = args.jig_weight
         self.only_non_scrambled = args.classify_only_sane
+        self.n_classes = args.n_classes
         if args.target in args.source:
             self.target_id = args.source.index(args.target)
         else:
@@ -83,25 +87,53 @@ class Trainer:
         self.model.eval()
         with torch.no_grad():
             for phase, loader in self.test_loaders.items():
-                jigsaw_correct = 0
-                class_correct = 0
-                total = 0
-                for it, ((data, jig_l, class_l), d_idx) in enumerate(loader):
-                    data, jig_l, class_l = data.to(self.device), jig_l.to(self.device), class_l.to(self.device)
-                    jigsaw_logit, class_logit = self.model(data)
-                    _, cls_pred = class_logit.max(dim=1)
-                    _, jig_pred = jigsaw_logit.max(dim=1)
-                    class_correct += torch.sum(cls_pred == class_l.data)
-                    jigsaw_correct += torch.sum(jig_pred == jig_l.data)
-                    total += data.shape[0]
+                total = len(loader.dataset)
+                if loader.dataset.isMulti():
+                    jigsaw_correct, class_correct, single_acc = self.do_test_multi(loader)
+                    print("Single vs multi: %g %g" % (float(single_acc) / total, float(class_correct) / total))
+                else:
+                    jigsaw_correct, class_correct = self.do_test(loader)
                 jigsaw_acc = float(jigsaw_correct) / total
                 class_acc = float(class_correct) / total
                 self.logger.log_test(phase, {"jigsaw": jigsaw_acc, "class": class_acc})
                 self.results[phase][self.current_epoch] = class_acc
 
+    def do_test(self, loader):
+        jigsaw_correct = 0
+        class_correct = 0
+        for it, ((data, jig_l, class_l), d_idx) in enumerate(loader):
+            data, jig_l, class_l = data.to(self.device), jig_l.to(self.device), class_l.to(self.device)
+            jigsaw_logit, class_logit = self.model(data)
+            _, cls_pred = class_logit.max(dim=1)
+            _, jig_pred = jigsaw_logit.max(dim=1)
+            class_correct += torch.sum(cls_pred == class_l.data)
+            jigsaw_correct += torch.sum(jig_pred == jig_l.data)
+        return jigsaw_correct, class_correct
+
+    def do_test_multi(self, loader):
+        jigsaw_correct = 0
+        class_correct = 0
+        single_correct = 0
+        for it, ((data, jig_l, class_l), d_idx) in enumerate(loader):
+            data, jig_l, class_l = data.to(self.device), jig_l.to(self.device), class_l.to(self.device)
+            n_permutations = data.shape[1]
+            class_logits = torch.zeros(n_permutations, data.shape[0], self.n_classes).to(self.device)
+            for k in range(n_permutations):
+                class_logits[k] = F.softmax(self.model(data[:, k])[1], dim=1)
+            class_logits[0] *= 4 * n_permutations  # bias more the original image
+            class_logit = class_logits.mean(0)
+            _, cls_pred = class_logit.max(dim=1)
+            jigsaw_logit, single_logit = self.model(data[:, 0])
+            _, jig_pred = jigsaw_logit.max(dim=1)
+            _, single_logit = single_logit.max(dim=1)
+            single_correct += torch.sum(single_logit == class_l.data)
+            class_correct += torch.sum(cls_pred == class_l.data)
+            jigsaw_correct += torch.sum(jig_pred == jig_l.data[:, 0])
+        return jigsaw_correct, class_correct, single_correct
+
     def do_training(self):
         self.logger = Logger(self.args, update_frequency=30)
-        self.results = {"val":torch.zeros(self.args.epochs), "test": torch.zeros(self.args.epochs)}
+        self.results = {"val": torch.zeros(self.args.epochs), "test": torch.zeros(self.args.epochs)}
         for self.current_epoch in range(self.args.epochs):
             self.scheduler.step()
             self.logger.new_epoch(self.scheduler.get_lr())

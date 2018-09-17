@@ -4,7 +4,7 @@ import torch
 from torch.utils.data import DataLoader
 
 from data import StandardDataset
-from data.JigsawLoader import JigsawDataset, JigsawTestDataset, get_split_dataset_info, _dataset_info
+from data.JigsawLoader import JigsawDataset, JigsawTestDataset, get_split_dataset_info, _dataset_info, JigsawTestDatasetMultiple
 from data.concat_dataset import ConcatDataset
 
 IMAGE_SIZE = 224
@@ -46,8 +46,11 @@ def get_train_dataloader(dataset_name, jig_classes, batch_size=128, val_size=0.0
     return loader, val_loader
 
 
-def get_val_dataloader(dataset_name, jig_classes, batch_size=128):
+def get_val_dataloader(dataset_name, jig_classes, batch_size=128, multi=False):
     names, labels = _dataset_info(join(dirname(__file__), 'txt_lists', '%s_train.txt' % dataset_name))
-    dataset = ConcatDataset([JigsawTestDataset(names, labels, patches=False, classes=jig_classes)])
+    if multi:
+        dataset = ConcatDataset([JigsawTestDatasetMultiple(names, labels, patches=False, classes=jig_classes)])
+    else:
+        dataset = ConcatDataset([JigsawTestDataset(names, labels, patches=False, classes=jig_classes)])
     loader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=False, num_workers=4, pin_memory=True, drop_last=False)
     return loader
