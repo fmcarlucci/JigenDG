@@ -4,6 +4,7 @@ from models import alexnet
 
 nets_map = {
     'caffenet': caffenet.caffenet,
+    'caffenet_fc7':caffenet.caffenet_fc7,
     'caffenet_jigsaw': patch_based.caffenet_patches,
     'alexnet': alexnet.alexnet
 }
