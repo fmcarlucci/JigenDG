@@ -29,6 +29,7 @@ def get_args():
     parser.add_argument("--TTA", type=bool, default=False, help="Activate test time data augmentation")
     parser.add_argument("--classify_only_sane", default=False, type=bool,
                         help="If true, the network will only try to classify the non scrambled images")
+    parser.add_argument("--train_all", default=False, type=bool, help="If true, all network weights will be trained")
     return parser.parse_args()
 
 
@@ -43,11 +44,11 @@ class Trainer:
         self.model = model.to(device)
         # print(self.model)
         self.source_loader, self.val_loader = data_helper.get_train_dataloader(args.source, args.jigsaw_n_classes, val_size=args.val_size,
-                                                                               bias_whole_image=args.bias_whole_image)
-        self.target_loader = data_helper.get_val_dataloader(args.target, args.jigsaw_n_classes, multi=args.TTA)
+                                                                               bias_whole_image=args.bias_whole_image, patches=model.is_patch_based())
+        self.target_loader = data_helper.get_val_dataloader(args.target, args.jigsaw_n_classes, multi=args.TTA, patches=model.is_patch_based())
         self.test_loaders = {"val": self.val_loader, "test": self.target_loader}
         print("Dataset size: train %d, val %d, test %d" % (len(self.source_loader.dataset), len(self.val_loader.dataset), len(self.target_loader.dataset)))
-        self.optimizer, self.scheduler = get_optim_and_scheduler(model, args.epochs, args.learning_rate)
+        self.optimizer, self.scheduler = get_optim_and_scheduler(model, args.epochs, args.learning_rate, args.train_all)
         self.jig_weight = args.jig_weight
         self.only_non_scrambled = args.classify_only_sane
         self.n_classes = args.n_classes

@@ -54,15 +54,15 @@ class JigsawDataset(data.Dataset):
         self.permutations = self.__retrieve_permutations(classes)
         self.grid_size = 3
         self.bias_whole_image = bias_whole_image
-
+        
         self._image_transformer = transforms.Compose([
             #             transforms.Resize(256, Image.BILINEAR),
             transforms.RandomResizedCrop(255, (0.8, 1.0))]
         )
         self._augment_tile = transforms.Compose([
-            # transforms.RandomResizedCrop(75,(0.8, 1.0)),
+#             transforms.RandomResizedCrop(75,(0.8, 1.0)),
             transforms.Resize((75, 75), Image.BILINEAR),
-            # transforms.ColorJitter(0.1, 0.1, 0.1, 0.1),
+#             transforms.ColorJitter(0.1, 0.1, 0.1, 0.0),
             transforms.RandomGrayscale(0.1),
             transforms.ToTensor(),
             transforms.Normalize([0.485, 0.456, 0.406], std=[1 / 256., 1 / 256., 1 / 256.])  # [0.229, 0.224, 0.225]
@@ -72,7 +72,7 @@ class JigsawDataset(data.Dataset):
         else:
             def make_grid(x):
                 return torchvision.utils.make_grid(x, self.grid_size, padding=0)
-        self.returnFunc = make_grid
+            self.returnFunc = make_grid
 
     def __getitem__(self, index):
         framename = self.data_path + '/' + self.names[index]
@@ -169,22 +169,23 @@ class JigsawTestDatasetMultiple(JigsawDataset):
 
         w = float(img.size[0]) / self.grid_size
         n_grids = self.grid_size ** 2
-        tiles = [None] * n_grids
         images = []
         jig_labels = []
-        images.append(self._image_transformer_full(_img))
-        jig_labels.append(0)
-        for order in range(0, len(self.permutations), 3):
-            for n in range(n_grids):
-                y = int(n / self.grid_size)
-                x = n % self.grid_size
-                tile = img.crop([x * w, y * w, (x + 1) * w, (y + 1) * w])
-                tile = self._augment_tile(tile)
-                tiles[n] = tile
-            data = [tiles[self.permutations[order][t]] for t in range(n_grids)]
+        tiles = [None] * n_grids
+        for n in range(n_grids):
+            y = int(n / self.grid_size)
+            x = n % self.grid_size
+            tile = img.crop([x * w, y * w, (x + 1) * w, (y + 1) * w])
+            tile = self._augment_tile(tile)
+            tiles[n] = tile
+        for order in range(0, len(self.permutations)+1, 3):
+            if order==0:
+                data = tiles
+            else:
+                data = [tiles[self.permutations[order-1][t]] for t in range(n_grids)]
             data = self.returnFunc(torch.stack(data, 0))
             images.append(data)
-            jig_labels.append(order + 1)
+            jig_labels.append(order)
         images = torch.stack(images, 0)
         jig_labels = torch.LongTensor(jig_labels)
         return images, jig_labels, int(self.labels[index])

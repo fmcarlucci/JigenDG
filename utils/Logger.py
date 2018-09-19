@@ -78,6 +78,8 @@ class Logger():
             folder_name = join(args.folder_name, folder_name)
         name = "eps%d_bs%d_lr%g_class%d_jigClass%d_jigWeight%g" % (args.epochs, args.batch_size, args.learning_rate, args.n_classes,
                                                                       args.jigsaw_n_classes, args.jig_weight)
+        if args.train_all:
+            name += "_TAll"
         if args.bias_whole_image:
             name += "_bias%g" % args.bias_whole_image
         if args.classify_only_sane:
