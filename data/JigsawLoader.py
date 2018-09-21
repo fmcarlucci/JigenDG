@@ -54,15 +54,17 @@ class JigsawDataset(data.Dataset):
         self.permutations = self.__retrieve_permutations(classes)
         self.grid_size = 3
         self.bias_whole_image = bias_whole_image
-        
+        self.patch_size = 75
+        if patches:
+            self.patch_size = 64
         self._image_transformer = transforms.Compose([
             #             transforms.Resize(256, Image.BILINEAR),
             transforms.RandomResizedCrop(255, (0.8, 1.0))]
         )
         self._augment_tile = transforms.Compose([
-#             transforms.RandomResizedCrop(75,(0.8, 1.0)),
-            transforms.Resize((75, 75), Image.BILINEAR),
-#             transforms.ColorJitter(0.1, 0.1, 0.1, 0.0),
+            #transforms.RandomResizedCrop(self.patch_size,(0.8, 1.0)),
+            transforms.Resize((self.patch_size, self.patch_size), Image.BILINEAR),
+            # transforms.ColorJitter(0.1, 0.1, 0.1, 0.0),
             transforms.RandomGrayscale(0.1),
             transforms.ToTensor(),
             transforms.Normalize([0.485, 0.456, 0.406], std=[1 / 256., 1 / 256., 1 / 256.])  # [0.229, 0.224, 0.225]
@@ -121,7 +123,7 @@ class JigsawTestDataset(JigsawDataset):
         ])
         self._augment_tile = transforms.Compose([
             #             transforms.RandomCrop(64),
-            transforms.Resize((75, 75), Image.BILINEAR),
+            transforms.Resize((self.patch_size, self.patch_size), Image.BILINEAR),
             transforms.ToTensor(),
             transforms.Normalize([0.485, 0.456, 0.406], [1 / 256., 1 / 256., 1 / 256.])
         ])

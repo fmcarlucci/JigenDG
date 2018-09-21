@@ -30,6 +30,7 @@ def get_args():
     parser.add_argument("--classify_only_sane", default=False, type=bool,
                         help="If true, the network will only try to classify the non scrambled images")
     parser.add_argument("--train_all", default=False, type=bool, help="If true, all network weights will be trained")
+    parser.add_argument("--suffix", default="", help="Suffix for the logger")
     return parser.parse_args()
 
 
@@ -43,7 +44,7 @@ class Trainer:
         model = model_factory.get_network(args.network)(jigsaw_classes=args.jigsaw_n_classes + 1, classes=args.n_classes)
         self.model = model.to(device)
         # print(self.model)
-        self.source_loader, self.val_loader = data_helper.get_train_dataloader(args.source, args.jigsaw_n_classes, val_size=args.val_size,
+        self.source_loader, self.val_loader = data_helper.get_train_dataloader(args.source, args.jigsaw_n_classes, val_size=args.val_size, batch_size=args.batch_size,
                                                                                bias_whole_image=args.bias_whole_image, patches=model.is_patch_based())
         self.target_loader = data_helper.get_val_dataloader(args.target, args.jigsaw_n_classes, multi=args.TTA, patches=model.is_patch_based())
         self.test_loaders = {"val": self.val_loader, "test": self.target_loader}

@@ -13,6 +13,7 @@ class Logger():
         self.current_epoch = 0
         self.max_epochs = args.epochs
         self.last_update = time()
+        self.start_time = time()
         self._clean_epoch_stats()
         self.update_f = update_frequency
         self.losses = {"jigsaw": [], "class": []}
@@ -66,6 +67,7 @@ class Logger():
             for k, v in accuracies.items(): self.tf_logger.scalar_summary("%s/acc_%s" % (phase, k), v, self.current_iter)
 
     def save_best(self, val_test, best_test):
+        print("It took %g" % (time() - self.start_time))
         if self.tf_logger:
             for x in range(10):
                 self.tf_logger.scalar_summary("best/from_val_test", val_test, x)
@@ -86,5 +88,7 @@ class Logger():
             name += "_classifyOnlySane"
         if args.TTA:
             name += "_TTA"
+        if args.suffix:
+            name += "_%s" % args.suffix
         name += "_%d" % int(time() % 1000)
         return folder_name, name
