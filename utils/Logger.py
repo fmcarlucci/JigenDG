@@ -16,8 +16,8 @@ class Logger():
         self.start_time = time()
         self._clean_epoch_stats()
         self.update_f = update_frequency
-        self.losses = {"jigsaw": [], "class": []}
-        self.val_acc = {"jigsaw": [], "class": []}
+        self.losses = {"jigsaw": [], "class": [], "OOO":[]}
+        self.val_acc = {"jigsaw": [], "class": [], "OOO":[]}
         folder, logname = self.get_name_from_args(args)
         log_path = join(_log_path, folder, logname)
         if args.tf_logger:
@@ -39,12 +39,12 @@ class Logger():
 
     def log(self, it, iters, losses, samples_right, total_samples):
         self.current_iter += 1
-        loss_string = ", ".join(["%s : %f" % (k, v) for k, v in losses.items()])
+        loss_string = ", ".join(["%s : %.3f" % (k, v) for k, v in losses.items()])
         for k, v in samples_right.items():
             past = self.epoch_stats.get(k, 0.0)
             self.epoch_stats[k] = past + v
         self.total += total_samples
-        acc_string = ", ".join(["%s : %f" % (k, v / total_samples) for k, v in samples_right.items()])
+        acc_string = ", ".join(["%s : %.2f" % (k, 100*(v / total_samples)) for k, v in samples_right.items()])
         if it % self.update_f == 0:
             print("%d/%d of epoch %d/%d %s - acc %s [bs:%d]" % (it, iters, self.current_epoch, self.max_epochs, loss_string,
                                                                 acc_string, total_samples))
@@ -59,7 +59,7 @@ class Logger():
         self.total = 0
 
     def log_test(self, phase, accuracies):
-        print("Accuracies on %s: " % phase + ", ".join(["%s : %f" % (k, v) for k, v in accuracies.items()]))
+        print("Accuracies on %s: " % phase + ", ".join(["%s : %.2f" % (k, v*100) for k, v in accuracies.items()]))
         if phase == "test":  # TODO: remove this hacky stuff
             for k, v in accuracies.items():
                 self.val_acc[k].append(v)
@@ -80,6 +80,8 @@ class Logger():
             folder_name = join(args.folder_name, folder_name)
         name = "eps%d_bs%d_lr%g_class%d_jigClass%d_jigWeight%g" % (args.epochs, args.batch_size, args.learning_rate, args.n_classes,
                                                                       args.jigsaw_n_classes, args.jig_weight)
+        if args.ooo_weight > 0:
+            name += "_oooW%g" % args.ooo_weight
         if args.train_all:
             name += "_TAll"
         if args.bias_whole_image:

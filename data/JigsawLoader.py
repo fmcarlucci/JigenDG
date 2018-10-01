@@ -64,7 +64,7 @@ class JigsawDataset(data.Dataset):
         self._augment_tile = transforms.Compose([
             #transforms.RandomResizedCrop(self.patch_size,(0.8, 1.0)),
             transforms.Resize((self.patch_size, self.patch_size), Image.BILINEAR),
-            # transforms.ColorJitter(0.1, 0.1, 0.1, 0.0),
+            #transforms.ColorJitter(0.1, 0.1, 0.1, 0.0),
             transforms.RandomGrayscale(0.1),
             transforms.ToTensor(),
             transforms.Normalize([0.485, 0.456, 0.406], std=[1 / 256., 1 / 256., 1 / 256.])  # [0.229, 0.224, 0.225]
@@ -76,20 +76,25 @@ class JigsawDataset(data.Dataset):
                 return torchvision.utils.make_grid(x, self.grid_size, padding=0)
             self.returnFunc = make_grid
 
-    def __getitem__(self, index):
+    def get_tile(self, img, n):
+        w = float(img.size[0]) / self.grid_size
+        y = int(n / self.grid_size)
+        x = n % self.grid_size
+        tile = img.crop([x * w, y * w, (x + 1) * w, (y + 1) * w])
+        tile = self._augment_tile(tile)
+        return tile
+    
+    def get_image(self, index):
         framename = self.data_path + '/' + self.names[index]
         img = Image.open(framename).convert('RGB')
-        img = self._image_transformer(img)
-
-        w = float(img.size[0]) / self.grid_size
+        return self._image_transformer(img)
+        
+    def __getitem__(self, index):
+        img = self.get_image(index)
         n_grids = self.grid_size ** 2
         tiles = [None] * n_grids
         for n in range(n_grids):
-            y = int(n / self.grid_size)
-            x = n % self.grid_size
-            tile = img.crop([x * w, y * w, (x + 1) * w, (y + 1) * w])
-            tile = self._augment_tile(tile)
-            tiles[n] = tile
+            tiles[n] = self.get_tile(img, n)
 
         order = np.random.randint(len(self.permutations) + 1)  # added 1 for class 0: unsorted
         if self.bias_whole_image:
@@ -97,10 +102,14 @@ class JigsawDataset(data.Dataset):
                 order = 0
         if order == 0:
             data = tiles
+            ooo = 9
         else:
             data = [tiles[self.permutations[order - 1][t]] for t in range(n_grids)]
+            ooo = np.random.randint(9)   # odd one out
+            data[ooo] = self.get_tile(self.get_image(np.random.randint(len(self))), ooo)
+            
         data = torch.stack(data, 0)
-        return self.returnFunc(data), int(order), int(self.labels[index])
+        return self.returnFunc(data), int(order), int(self.labels[index]), ooo
 
     def __len__(self):
         return len(self.names)
@@ -144,7 +153,7 @@ class JigsawTestDataset(JigsawDataset):
             tiles[n] = tile
 
         data = torch.stack(tiles, 0)
-        return self.returnFunc(data), 0, int(self.labels[index])
+        return self.returnFunc(data), 0, int(self.labels[index]), int(9)  # image data, permutation label, object label, ooo label
 
 
 class JigsawTestDatasetMultiple(JigsawDataset):

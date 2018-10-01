@@ -39,11 +39,13 @@ class AlexNetCaffe(nn.Module):
 
         self.jigsaw_classifier = nn.Linear(4096, jigsaw_classes)
         self.class_classifier = nn.Linear(4096, n_classes)
+        self.ooo_classifier = nn.Linear(4096, 10)
 
     def get_params(self, base_lr):
         return [{"params": self.features.parameters(), "lr": 0.},
                 {"params": chain(self.classifier.parameters(), self.jigsaw_classifier.parameters()
-                                 , self.class_classifier.parameters()), "lr": base_lr}]
+                                 , self.class_classifier.parameters(), self.ooo_classifier.parameters()
+                                ), "lr": base_lr}]
 
     def is_patch_based(self):
         return False
@@ -52,7 +54,7 @@ class AlexNetCaffe(nn.Module):
         x = self.features(x)
         x = x.view(x.size(0), -1)
         x = self.classifier(x)
-        return self.jigsaw_classifier(x), self.class_classifier(x)
+        return self.jigsaw_classifier(x), self.class_classifier(x), self.ooo_classifier(x)
 
 
 class Flatten(nn.Module):

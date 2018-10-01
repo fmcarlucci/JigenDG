@@ -22,6 +22,7 @@ def get_args():
     parser.add_argument("--jigsaw_n_classes", "-jc", type=int, default=31, help="Number of classes for the jigsaw task")
     parser.add_argument("--network", choices=model_factory.nets_map.keys(), help="Which network to use", default="caffenet")
     parser.add_argument("--jig_weight", type=float, default=0.1, help="Weight for the jigsaw puzzle")
+    parser.add_argument("--ooo_weight", type=float, default=0, help="Weight for odd one out task")
     parser.add_argument("--tf_logger", type=bool, default=True, help="If true will save tensorboard compatible logs")
     parser.add_argument("--val_size", type=float, default="0.1", help="Validation size (between 0 and 1)")
     parser.add_argument("--folder_name", default=None, help="Used by the logger to save logs")
@@ -51,6 +52,7 @@ class Trainer:
         print("Dataset size: train %d, val %d, test %d" % (len(self.source_loader.dataset), len(self.val_loader.dataset), len(self.target_loader.dataset)))
         self.optimizer, self.scheduler = get_optim_and_scheduler(model, args.epochs, args.learning_rate, args.train_all)
         self.jig_weight = args.jig_weight
+        self.ooo_weight = args.ooo_weight
         self.only_non_scrambled = args.classify_only_sane
         self.n_classes = args.n_classes
         if args.target in args.source:
@@ -61,13 +63,14 @@ class Trainer:
     def _do_epoch(self):
         criterion = nn.CrossEntropyLoss()
         self.model.train()
-        for it, ((data, jig_l, class_l), d_idx) in enumerate(self.source_loader):
-            data, jig_l, class_l = data.to(self.device), jig_l.to(self.device), class_l.to(self.device)
+        for it, ((data, jig_l, class_l, ooo), d_idx) in enumerate(self.source_loader):
+            data, jig_l, class_l, ooo = data.to(self.device), jig_l.to(self.device), class_l.to(self.device), ooo.to(self.device)
 
             self.optimizer.zero_grad()
 
-            jigsaw_logit, class_logit = self.model(data)
+            jigsaw_logit, class_logit, ooo_logit = self.model(data)
             jigsaw_loss = criterion(jigsaw_logit, jig_l)
+            ooo_loss = criterion(ooo_logit, ooo)
             if self.only_non_scrambled:
                 class_loss = criterion(class_logit[jig_l == 0], class_l[jig_l == 0])
             elif self.target_id:
@@ -76,13 +79,17 @@ class Trainer:
                 class_loss = criterion(class_logit, class_l)
             _, cls_pred = class_logit.max(dim=1)
             _, jig_pred = jigsaw_logit.max(dim=1)
-            loss = class_loss + jigsaw_loss * self.jig_weight
+            _, ooo_pred = ooo_logit.max(dim=1)
+            loss = class_loss + jigsaw_loss * self.jig_weight  + ooo_loss * self.ooo_weight
 
             loss.backward()
             self.optimizer.step()
 
-            self.logger.log(it, len(self.source_loader), {"jigsaw": jigsaw_loss.item(), "class": class_loss.item()},
-                            {"jigsaw": torch.sum(jig_pred == jig_l.data).item(), "class": torch.sum(cls_pred == class_l.data).item()},
+            self.logger.log(it, len(self.source_loader), 
+                            {"jigsaw": jigsaw_loss.item(), "class": class_loss.item(), "OOO": ooo_loss.item()},
+                            {"jigsaw": torch.sum(jig_pred == jig_l.data).item(), 
+                             "class": torch.sum(cls_pred == class_l.data).item(),
+                             "OOO": torch.sum(ooo_pred == ooo.data).item()},
                             data.shape[0])
             del loss, class_loss, jigsaw_loss, jigsaw_logit, class_logit
 
@@ -94,23 +101,27 @@ class Trainer:
                     jigsaw_correct, class_correct, single_acc = self.do_test_multi(loader)
                     print("Single vs multi: %g %g" % (float(single_acc) / total, float(class_correct) / total))
                 else:
-                    jigsaw_correct, class_correct = self.do_test(loader)
+                    jigsaw_correct, class_correct, ooo_correct = self.do_test(loader)
                 jigsaw_acc = float(jigsaw_correct) / total
                 class_acc = float(class_correct) / total
-                self.logger.log_test(phase, {"jigsaw": jigsaw_acc, "class": class_acc})
+                ooo_acc = float(ooo_correct) / total
+                self.logger.log_test(phase, {"jigsaw": jigsaw_acc, "class": class_acc, "OOO": ooo_acc})
                 self.results[phase][self.current_epoch] = class_acc
 
     def do_test(self, loader):
         jigsaw_correct = 0
         class_correct = 0
-        for it, ((data, jig_l, class_l), d_idx) in enumerate(loader):
-            data, jig_l, class_l = data.to(self.device), jig_l.to(self.device), class_l.to(self.device)
-            jigsaw_logit, class_logit = self.model(data)
+        ooo_correct = 0
+        for it, ((data, jig_l, class_l, ooo_l), d_idx) in enumerate(loader):
+            data, jig_l, class_l, ooo_l = data.to(self.device), jig_l.to(self.device), class_l.to(self.device), ooo_l.to(self.device)
+            jigsaw_logit, class_logit, ooo_logit = self.model(data)
             _, cls_pred = class_logit.max(dim=1)
             _, jig_pred = jigsaw_logit.max(dim=1)
+            _, ooo_pred = ooo_logit.max(dim=1)
             class_correct += torch.sum(cls_pred == class_l.data)
             jigsaw_correct += torch.sum(jig_pred == jig_l.data)
-        return jigsaw_correct, class_correct
+            ooo_correct += torch.sum(ooo_pred == ooo_l.data)
+        return jigsaw_correct, class_correct, ooo_correct
 
     def do_test_multi(self, loader):
         jigsaw_correct = 0
