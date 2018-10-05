@@ -6,7 +6,7 @@ import torch
 from torch import nn as nn
 
 from models.alexnet import Id
-from models.pretrained.model_utils import ReverseLayerF
+from models.model_utils import ReverseLayerF
 
 
 class AlexNetCaffe(nn.Module):
