@@ -9,15 +9,15 @@ _log_path = join(dirname(__file__), '../logs')
 
 # high level wrapper for tf_logger.TFLogger
 class Logger():
-    def __init__(self, args, update_frequency=10):
+    def __init__(self, args, log_items, update_frequency=10):
         self.current_epoch = 0
         self.max_epochs = args.epochs
         self.last_update = time()
         self.start_time = time()
         self._clean_epoch_stats()
         self.update_f = update_frequency
-        self.losses = {"jigsaw": [], "class": [], "OOO":[]}
-        self.val_acc = {"jigsaw": [], "class": [], "OOO":[]}
+        self.losses = {log_item:[] for log_item in log_items}
+        self.val_acc = {log_item:[] for log_item in log_items}
         folder, logname = self.get_name_from_args(args)
         log_path = join(_log_path, folder, logname)
         if args.tf_logger:
@@ -80,8 +80,8 @@ class Logger():
             folder_name = join(args.folder_name, folder_name)
         name = "eps%d_bs%d_lr%g_class%d_jigClass%d_jigWeight%g" % (args.epochs, args.batch_size, args.learning_rate, args.n_classes,
                                                                       args.jigsaw_n_classes, args.jig_weight)
-        if args.ooo_weight > 0:
-            name += "_oooW%g" % args.ooo_weight
+        # if args.ooo_weight > 0:
+        #     name += "_oooW%g" % args.ooo_weight
         if args.train_all:
             name += "_TAll"
         if args.bias_whole_image:

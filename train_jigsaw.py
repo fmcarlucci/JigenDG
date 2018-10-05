@@ -9,6 +9,7 @@ from data.data_helper import available_datasets
 from models import model_factory
 from optimizer.optimizer_helper import get_optim_and_scheduler
 from utils.Logger import Logger
+import numpy as np
 
 
 def get_args():
@@ -45,14 +46,15 @@ class Trainer:
         model = model_factory.get_network(args.network)(jigsaw_classes=args.jigsaw_n_classes + 1, classes=args.n_classes)
         self.model = model.to(device)
         # print(self.model)
-        self.source_loader, self.val_loader = data_helper.get_train_dataloader(args.source, args.jigsaw_n_classes, val_size=args.val_size, batch_size=args.batch_size,
+        self.source_loader, self.val_loader = data_helper.get_train_dataloader(args.source, args.jigsaw_n_classes, val_size=args.val_size,
+                                                                               batch_size=args.batch_size,
                                                                                bias_whole_image=args.bias_whole_image, patches=model.is_patch_based())
         self.target_loader = data_helper.get_val_dataloader(args.target, args.jigsaw_n_classes, multi=args.TTA, patches=model.is_patch_based())
         self.test_loaders = {"val": self.val_loader, "test": self.target_loader}
+        self.len_dataloader = len(self.source_loader)
         print("Dataset size: train %d, val %d, test %d" % (len(self.source_loader.dataset), len(self.val_loader.dataset), len(self.target_loader.dataset)))
         self.optimizer, self.scheduler = get_optim_and_scheduler(model, args.epochs, args.learning_rate, args.train_all)
         self.jig_weight = args.jig_weight
-        self.ooo_weight = args.ooo_weight
         self.only_non_scrambled = args.classify_only_sane
         self.n_classes = args.n_classes
         if args.target in args.source:
@@ -63,14 +65,23 @@ class Trainer:
     def _do_epoch(self):
         criterion = nn.CrossEntropyLoss()
         self.model.train()
-        for it, ((data, jig_l, class_l, ooo), d_idx) in enumerate(self.source_loader):
-            data, jig_l, class_l, ooo = data.to(self.device), jig_l.to(self.device), class_l.to(self.device), ooo.to(self.device)
+        domain_error = 0
+        for it, ((data, jig_l, class_l), d_idx) in enumerate(self.source_loader):
+            data, jig_l, class_l, d_idx = data.to(self.device), jig_l.to(self.device), class_l.to(self.device), d_idx.to(self.device)
+            absolute_iter_count = it + self.current_epoch * self.len_dataloader
+            p = float(absolute_iter_count) / self.args.epochs / self.len_dataloader
+            lambda_val = 2. / (1. + np.exp(-10 * p)) - 1
+            lambda_val = 0
+            if domain_error > 2.0:
+                lambda_val  = 0
+                print("Shutting down LAMBDA to prevent implosion")
 
             self.optimizer.zero_grad()
 
-            jigsaw_logit, class_logit, ooo_logit = self.model(data)
+            jigsaw_logit, class_logit, domain_logit = self.model(data, lambda_val=lambda_val)
             jigsaw_loss = criterion(jigsaw_logit, jig_l)
-            ooo_loss = criterion(ooo_logit, ooo)
+            domain_loss = criterion(domain_logit, d_idx)
+            domain_error = domain_loss.item()
             if self.only_non_scrambled:
                 class_loss = criterion(class_logit[jig_l == 0], class_l[jig_l == 0])
             elif self.target_id:
@@ -79,17 +90,18 @@ class Trainer:
                 class_loss = criterion(class_logit, class_l)
             _, cls_pred = class_logit.max(dim=1)
             _, jig_pred = jigsaw_logit.max(dim=1)
-            _, ooo_pred = ooo_logit.max(dim=1)
-            loss = class_loss + jigsaw_loss * self.jig_weight  + ooo_loss * self.ooo_weight
+            _, domain_pred = domain_logit.max(dim=1)
+            loss = class_loss + jigsaw_loss * self.jig_weight + domain_loss
 
             loss.backward()
             self.optimizer.step()
 
-            self.logger.log(it, len(self.source_loader), 
-                            {"jigsaw": jigsaw_loss.item(), "class": class_loss.item(), "OOO": ooo_loss.item()},
-                            {"jigsaw": torch.sum(jig_pred == jig_l.data).item(), 
+            self.logger.log(it, len(self.source_loader),
+                            {"jigsaw": jigsaw_loss.item(), "class": class_loss.item(), "domain": domain_loss.item(),
+                             "lambda": lambda_val},
+                            {"jigsaw": torch.sum(jig_pred == jig_l.data).item(),
                              "class": torch.sum(cls_pred == class_l.data).item(),
-                             "OOO": torch.sum(ooo_pred == ooo.data).item()},
+                             "domain": torch.sum(domain_pred == d_idx.data).item()},
                             data.shape[0])
             del loss, class_loss, jigsaw_loss, jigsaw_logit, class_logit
 
@@ -101,27 +113,24 @@ class Trainer:
                     jigsaw_correct, class_correct, single_acc = self.do_test_multi(loader)
                     print("Single vs multi: %g %g" % (float(single_acc) / total, float(class_correct) / total))
                 else:
-                    jigsaw_correct, class_correct, ooo_correct = self.do_test(loader)
+                    jigsaw_correct, class_correct = self.do_test(loader)
                 jigsaw_acc = float(jigsaw_correct) / total
                 class_acc = float(class_correct) / total
-                ooo_acc = float(ooo_correct) / total
-                self.logger.log_test(phase, {"jigsaw": jigsaw_acc, "class": class_acc, "OOO": ooo_acc})
+                self.logger.log_test(phase, {"jigsaw": jigsaw_acc, "class": class_acc})
                 self.results[phase][self.current_epoch] = class_acc
 
     def do_test(self, loader):
         jigsaw_correct = 0
         class_correct = 0
-        ooo_correct = 0
-        for it, ((data, jig_l, class_l, ooo_l), d_idx) in enumerate(loader):
-            data, jig_l, class_l, ooo_l = data.to(self.device), jig_l.to(self.device), class_l.to(self.device), ooo_l.to(self.device)
-            jigsaw_logit, class_logit, ooo_logit = self.model(data)
+        domain_correct = 0
+        for it, ((data, jig_l, class_l), _) in enumerate(loader):
+            data, jig_l, class_l = data.to(self.device), jig_l.to(self.device), class_l.to(self.device)
+            jigsaw_logit, class_logit, domain_logit = self.model(data)
             _, cls_pred = class_logit.max(dim=1)
             _, jig_pred = jigsaw_logit.max(dim=1)
-            _, ooo_pred = ooo_logit.max(dim=1)
             class_correct += torch.sum(cls_pred == class_l.data)
             jigsaw_correct += torch.sum(jig_pred == jig_l.data)
-            ooo_correct += torch.sum(ooo_pred == ooo_l.data)
-        return jigsaw_correct, class_correct, ooo_correct
+        return jigsaw_correct, class_correct
 
     def do_test_multi(self, loader):
         jigsaw_correct = 0
@@ -145,7 +154,7 @@ class Trainer:
         return jigsaw_correct, class_correct, single_correct
 
     def do_training(self):
-        self.logger = Logger(self.args, update_frequency=30)
+        self.logger = Logger(self.args, ["jigsaw", "class", "domain", "lambda"], update_frequency=30)
         self.results = {"val": torch.zeros(self.args.epochs), "test": torch.zeros(self.args.epochs)}
         for self.current_epoch in range(self.args.epochs):
             self.scheduler.step()

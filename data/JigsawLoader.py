@@ -102,14 +102,11 @@ class JigsawDataset(data.Dataset):
                 order = 0
         if order == 0:
             data = tiles
-            ooo = 9
         else:
             data = [tiles[self.permutations[order - 1][t]] for t in range(n_grids)]
-            ooo = np.random.randint(9)   # odd one out
-            data[ooo] = self.get_tile(self.get_image(np.random.randint(len(self))), ooo)
             
         data = torch.stack(data, 0)
-        return self.returnFunc(data), int(order), int(self.labels[index]), ooo
+        return self.returnFunc(data), int(order), int(self.labels[index])
 
     def __len__(self):
         return len(self.names)
@@ -153,7 +150,7 @@ class JigsawTestDataset(JigsawDataset):
             tiles[n] = tile
 
         data = torch.stack(tiles, 0)
-        return self.returnFunc(data), 0, int(self.labels[index]), int(9)  # image data, permutation label, object label, ooo label
+        return self.returnFunc(data), 0, int(self.labels[index])  # image data, permutation label, object label
 
 
 class JigsawTestDatasetMultiple(JigsawDataset):

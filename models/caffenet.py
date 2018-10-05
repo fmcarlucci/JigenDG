@@ -6,10 +6,11 @@ import torch
 from torch import nn as nn
 
 from models.alexnet import Id
+from models.pretrained.model_utils import ReverseLayerF
 
 
 class AlexNetCaffe(nn.Module):
-    def __init__(self, jigsaw_classes=1000, n_classes=100, dropout=True):
+    def __init__(self, jigsaw_classes=1000, n_classes=100, domains=3, dropout=True):
         super(AlexNetCaffe, self).__init__()
         print("Using Caffe AlexNet")
         self.features = nn.Sequential(OrderedDict([
@@ -39,22 +40,30 @@ class AlexNetCaffe(nn.Module):
 
         self.jigsaw_classifier = nn.Linear(4096, jigsaw_classes)
         self.class_classifier = nn.Linear(4096, n_classes)
-        self.ooo_classifier = nn.Linear(4096, 10)
+        self.domain_classifier = nn.Sequential(
+            nn.Linear(256 * 6 * 6, 1024),
+            nn.ReLU(),
+            nn.Dropout(),
+            nn.Linear(1024, 1024),
+            nn.ReLU(),
+            nn.Dropout(),
+            nn.Linear(1024, domains))
 
     def get_params(self, base_lr):
         return [{"params": self.features.parameters(), "lr": 0.},
                 {"params": chain(self.classifier.parameters(), self.jigsaw_classifier.parameters()
-                                 , self.class_classifier.parameters(), self.ooo_classifier.parameters()
-                                ), "lr": base_lr}]
+                                 , self.class_classifier.parameters(), self.domain_classifier.parameters()
+                                 ), "lr": base_lr}]
 
     def is_patch_based(self):
         return False
 
-    def forward(self, x):
+    def forward(self, x, lambda_val=0):
         x = self.features(x)
         x = x.view(x.size(0), -1)
+        d = ReverseLayerF.apply(x, lambda_val)
         x = self.classifier(x)
-        return self.jigsaw_classifier(x), self.class_classifier(x), self.ooo_classifier(x)
+        return self.jigsaw_classifier(x), self.class_classifier(x), self.domain_classifier(d)
 
 
 class Flatten(nn.Module):
@@ -156,14 +165,16 @@ class AlexNetCaffeFC7(AlexNetCaffe):
 
 def caffenet(jigsaw_classes, classes):
     model = AlexNetCaffe(jigsaw_classes, classes)
+    for m in model.modules():
+        if isinstance(m, nn.Linear):
+            nn.init.xavier_uniform_(model.jigsaw_classifier.weight, .1)
+            nn.init.constant_(model.jigsaw_classifier.bias, 0.)
+
     state_dict = torch.load(os.path.join(os.path.dirname(__file__), "pretrained/alexnet_caffe.pth.tar"))
     del state_dict["classifier.fc8.weight"]
     del state_dict["classifier.fc8.bias"]
     model.load_state_dict(state_dict, strict=False)
-    nn.init.xavier_uniform_(model.jigsaw_classifier.weight, .1)
-    nn.init.constant_(model.jigsaw_classifier.bias, 0.)
-    nn.init.xavier_uniform_(model.class_classifier.weight, .1)
-    nn.init.constant_(model.class_classifier.bias, 0.)
+
     return model
 
 
