@@ -40,19 +40,19 @@ class AlexNetCaffe(nn.Module):
 
         self.jigsaw_classifier = nn.Linear(4096, jigsaw_classes)
         self.class_classifier = nn.Linear(4096, n_classes)
-        self.domain_classifier = nn.Sequential(
-            nn.Linear(256 * 6 * 6, 1024),
-            nn.ReLU(),
-            nn.Dropout(),
-            nn.Linear(1024, 1024),
-            nn.ReLU(),
-            nn.Dropout(),
-            nn.Linear(1024, domains))
+        # self.domain_classifier = nn.Sequential(
+        #     nn.Linear(256 * 6 * 6, 1024),
+        #     nn.ReLU(),
+        #     nn.Dropout(),
+        #     nn.Linear(1024, 1024),
+        #     nn.ReLU(),
+        #     nn.Dropout(),
+        #     nn.Linear(1024, domains))
 
     def get_params(self, base_lr):
         return [{"params": self.features.parameters(), "lr": 0.},
                 {"params": chain(self.classifier.parameters(), self.jigsaw_classifier.parameters()
-                                 , self.class_classifier.parameters(), self.domain_classifier.parameters()
+                                 , self.class_classifier.parameters()#, self.domain_classifier.parameters()
                                  ), "lr": base_lr}]
 
     def is_patch_based(self):
@@ -61,9 +61,9 @@ class AlexNetCaffe(nn.Module):
     def forward(self, x, lambda_val=0):
         x = self.features(x)
         x = x.view(x.size(0), -1)
-        d = ReverseLayerF.apply(x, lambda_val)
+        #d = ReverseLayerF.apply(x, lambda_val)
         x = self.classifier(x)
-        return self.jigsaw_classifier(x), self.class_classifier(x), self.domain_classifier(d)
+        return self.jigsaw_classifier(x), self.class_classifier(x)#, self.domain_classifier(d)
 
 
 class Flatten(nn.Module):
@@ -167,8 +167,8 @@ def caffenet(jigsaw_classes, classes):
     model = AlexNetCaffe(jigsaw_classes, classes)
     for m in model.modules():
         if isinstance(m, nn.Linear):
-            nn.init.xavier_uniform_(model.jigsaw_classifier.weight, .1)
-            nn.init.constant_(model.jigsaw_classifier.bias, 0.)
+            nn.init.xavier_uniform_(m.weight, .1)
+            nn.init.constant_(m.bias, 0.)
 
     state_dict = torch.load(os.path.join(os.path.dirname(__file__), "pretrained/alexnet_caffe.pth.tar"))
     del state_dict["classifier.fc8.weight"]
