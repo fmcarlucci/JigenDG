@@ -11,6 +11,7 @@ nets_map = {
     'caffenet_patches': patch_based.caffenet_patches,
     'alexnet': alexnet.alexnet,
     'resnet18': resnet.resnet18,
+    'resnet50': resnet.resnet50,
     'lenet': mnist.lenet
 }
 

@@ -1,6 +1,6 @@
 from torch import nn
 from torch.utils import model_zoo
-from torchvision.models.resnet import BasicBlock, model_urls
+from torchvision.models.resnet import BasicBlock, model_urls, Bottleneck
 
 
 class ResNet(nn.Module):
@@ -17,9 +17,9 @@ class ResNet(nn.Module):
         self.layer3 = self._make_layer(block, 256, layers[2], stride=2)
         self.layer4 = self._make_layer(block, 512, layers[3], stride=2)
         self.avgpool = nn.AvgPool2d(7, stride=1)
-        self.jigsaw_classifier = nn.Linear(2048, jigsaw_classes)
-        self.class_classifier = nn.Linear(2048, classes)
-        self.domain_classifier = nn.Linear(2048, domains)
+        self.jigsaw_classifier = nn.Linear(512 * block.expansion, jigsaw_classes)
+        self.class_classifier = nn.Linear(512 * block.expansion, classes)
+        #self.domain_classifier = nn.Linear(512 * block.expansion, domains)
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
@@ -61,8 +61,7 @@ class ResNet(nn.Module):
 
         x = self.avgpool(x)
         x = x.view(x.size(0), -1)
-
-        return self.jigsaw_classifier(x), self.class_classifier(x), self.domain_classifier(x)
+        return self.jigsaw_classifier(x), self.class_classifier(x)
 
 
 def resnet18(pretrained=True, **kwargs):
@@ -73,4 +72,14 @@ def resnet18(pretrained=True, **kwargs):
     model = ResNet(BasicBlock, [2, 2, 2, 2], **kwargs)
     if pretrained:
         model.load_state_dict(model_zoo.load_url(model_urls['resnet18']), strict=False)
+    return model
+
+def resnet50(pretrained=False, **kwargs):
+    """Constructs a ResNet-50 model.
+    Args:
+        pretrained (bool): If True, returns a model pre-trained on ImageNet
+    """
+    model = ResNet(Bottleneck, [3, 4, 6, 3], **kwargs)
+    if pretrained:
+        model.load_state_dict(model_zoo.load_url(model_urls['resnet50']))
     return model
