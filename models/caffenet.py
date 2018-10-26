@@ -59,7 +59,7 @@ class AlexNetCaffe(nn.Module):
         return False
 
     def forward(self, x, lambda_val=0):
-        x = self.features(x)
+        x = self.features(x*57.6)  #57.6 is the magic number needed to bring torch data back to the range of caffe data, based on used std
         x = x.view(x.size(0), -1)
         #d = ReverseLayerF.apply(x, lambda_val)
         x = self.classifier(x)

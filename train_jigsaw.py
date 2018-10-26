@@ -17,6 +17,8 @@ def get_args():
     parser.add_argument("--source", choices=available_datasets, help="Source", nargs='+')
     parser.add_argument("--target", choices=available_datasets, help="Target")
     parser.add_argument("--batch_size", "-b", type=int, default=64, help="Batch size")
+    parser.add_argument("--image_size", type=int, default=225, help="Image size")
+
     parser.add_argument("--learning_rate", "-l", type=float, default=.01, help="Learning rate")
     parser.add_argument("--epochs", "-e", type=int, default=30, help="Number of epochs")
     parser.add_argument("--n_classes", "-c", type=int, default=31, help="Number of classes")
@@ -47,9 +49,10 @@ class Trainer:
         self.model = model.to(device)
         # print(self.model)
         self.source_loader, self.val_loader = data_helper.get_train_dataloader(args.source, args.jigsaw_n_classes, val_size=args.val_size,
-                                                                               batch_size=args.batch_size,
+                                                                               batch_size=args.batch_size, image_size=args.image_size,
                                                                                bias_whole_image=args.bias_whole_image, patches=model.is_patch_based())
-        self.target_loader = data_helper.get_val_dataloader(args.target, args.jigsaw_n_classes, multi=args.TTA, patches=model.is_patch_based())
+        self.target_loader = data_helper.get_val_dataloader(args.target, args.jigsaw_n_classes, image_size=args.image_size,
+                                                            multi=args.TTA, patches=model.is_patch_based())
         self.test_loaders = {"val": self.val_loader, "test": self.target_loader}
         self.len_dataloader = len(self.source_loader)
         print("Dataset size: train %d, val %d, test %d" % (len(self.source_loader.dataset), len(self.val_loader.dataset), len(self.target_loader.dataset)))
@@ -72,11 +75,11 @@ class Trainer:
             # lambda_val = 2. / (1. + np.exp(-10 * p)) - 1
             # if domain_error > 2.0:
             #     lambda_val  = 0
-                #print("Shutting down LAMBDA to prevent implosion")
+            # print("Shutting down LAMBDA to prevent implosion")
 
             self.optimizer.zero_grad()
 
-            jigsaw_logit, class_logit  = self.model(data)  # , lambda_val=lambda_val)
+            jigsaw_logit, class_logit = self.model(data)  # , lambda_val=lambda_val)
             jigsaw_loss = criterion(jigsaw_logit, jig_l)
             # domain_loss = criterion(domain_logit, d_idx)
             # domain_error = domain_loss.item()
@@ -94,18 +97,18 @@ class Trainer:
             _, cls_pred = class_logit.max(dim=1)
             _, jig_pred = jigsaw_logit.max(dim=1)
             # _, domain_pred = domain_logit.max(dim=1)
-            loss = class_loss + jigsaw_loss * self.jig_weight# + 0.1 * domain_loss
+            loss = class_loss + jigsaw_loss * self.jig_weight  # + 0.1 * domain_loss
 
             loss.backward()
             self.optimizer.step()
 
             self.logger.log(it, len(self.source_loader),
-                            {"jigsaw": jigsaw_loss.item(), "class": class_loss.item()#, "domain": domain_loss.item()
+                            {"jigsaw": jigsaw_loss.item(), "class": class_loss.item()  # , "domain": domain_loss.item()
                              },
-                            #,"lambda": lambda_val},
+                            # ,"lambda": lambda_val},
                             {"jigsaw": torch.sum(jig_pred == jig_l.data).item(),
                              "class": torch.sum(cls_pred == class_l.data).item(),
-                             #"domain": torch.sum(domain_pred == d_idx.data).item()
+                             # "domain": torch.sum(domain_pred == d_idx.data).item()
                              },
                             data.shape[0])
             del loss, class_loss, jigsaw_loss, jigsaw_logit, class_logit
@@ -159,7 +162,7 @@ class Trainer:
         return jigsaw_correct, class_correct, single_correct
 
     def do_training(self):
-        self.logger = Logger(self.args, ["jigsaw", "class"], update_frequency=30) # , "domain", "lambda"
+        self.logger = Logger(self.args, ["jigsaw", "class"], update_frequency=30)  # , "domain", "lambda"
         self.results = {"val": torch.zeros(self.args.epochs), "test": torch.zeros(self.args.epochs)}
         for self.current_epoch in range(self.args.epochs):
             self.scheduler.step()

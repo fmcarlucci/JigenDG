@@ -45,7 +45,7 @@ def get_split_dataset_info(txt_list, val_percentage):
 
 
 class JigsawDataset(data.Dataset):
-    def __init__(self, names, labels, classes=100, patches=True, bias_whole_image=None):
+    def __init__(self, names, labels, classes=100, patches=True, image_size=225,bias_whole_image=None):
         self.data_path = ""
         self.names = names
         self.labels = labels
@@ -54,12 +54,13 @@ class JigsawDataset(data.Dataset):
         self.permutations = self.__retrieve_permutations(classes)
         self.grid_size = 3
         self.bias_whole_image = bias_whole_image
-        self.patch_size = 75
+        self.patch_size = int(image_size/3)
+        self.image_size = image_size
         if patches:
             self.patch_size = 64
         self._image_transformer = transforms.Compose([
             #             transforms.Resize(256, Image.BILINEAR),
-            transforms.RandomResizedCrop(255, (0.8, 1.0))]
+            transforms.RandomResizedCrop(int(image_size), (0.8, 1.0))] #*(255/225)
         )
         self._augment_tile = transforms.Compose([
             #transforms.RandomResizedCrop(self.patch_size,(0.8, 1.0)),
@@ -67,7 +68,7 @@ class JigsawDataset(data.Dataset):
             #transforms.ColorJitter(0.1, 0.1, 0.1, 0.0),
             transforms.RandomGrayscale(0.1),
             transforms.ToTensor(),
-            transforms.Normalize([0.485, 0.456, 0.406], std=[1 / 256., 1 / 256., 1 / 256.])  # [0.229, 0.224, 0.225]
+            transforms.Normalize([0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])  # [0.229, 0.224, 0.225] [1 / 256., 1 / 256., 1 / 256.]
         ])
         if patches:
             self.returnFunc = lambda x: x
@@ -124,14 +125,14 @@ class JigsawTestDataset(JigsawDataset):
     def __init__(self, *args, **xargs):
         super().__init__(*args, **xargs)
         self._image_transformer = transforms.Compose([
-            transforms.Resize(255, Image.BILINEAR),
+            transforms.Resize(int(self.image_size), Image.BILINEAR),
             #             transforms.RandomResizedCrop(255, (0.8,1.0))
         ])
         self._augment_tile = transforms.Compose([
             #             transforms.RandomCrop(64),
             transforms.Resize((self.patch_size, self.patch_size), Image.BILINEAR),
             transforms.ToTensor(),
-            transforms.Normalize([0.485, 0.456, 0.406], [1 / 256., 1 / 256., 1 / 256.])
+            transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
         ])
 
     def __getitem__(self, index):
@@ -162,12 +163,12 @@ class JigsawTestDatasetMultiple(JigsawDataset):
         self._image_transformer_full = transforms.Compose([
             transforms.Resize(225, Image.BILINEAR),
             transforms.ToTensor(),
-            transforms.Normalize([0.485, 0.456, 0.406], [1 / 256., 1 / 256., 1 / 256.])
+            transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
         ])
         self._augment_tile = transforms.Compose([
             transforms.Resize((75, 75), Image.BILINEAR),
             transforms.ToTensor(),
-            transforms.Normalize([0.485, 0.456, 0.406], [1 / 256., 1 / 256., 1 / 256.])
+            transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
         ])
 
     def __getitem__(self, index):
