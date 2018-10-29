@@ -45,31 +45,19 @@ def get_split_dataset_info(txt_list, val_percentage):
 
 
 class JigsawDataset(data.Dataset):
-    def __init__(self, names, labels, classes=100, patches=True, image_size=225,bias_whole_image=None):
+    def __init__(self, names, labels, jig_classes=100, img_transformer=None, tile_transformer=None, patches=True, bias_whole_image=None):
         self.data_path = ""
         self.names = names
         self.labels = labels
 
         self.N = len(self.names)
-        self.permutations = self.__retrieve_permutations(classes)
+        self.permutations = self.__retrieve_permutations(jig_classes)
         self.grid_size = 3
         self.bias_whole_image = bias_whole_image
-        self.patch_size = int(image_size/3)
-        self.image_size = image_size
         if patches:
             self.patch_size = 64
-        self._image_transformer = transforms.Compose([
-            #             transforms.Resize(256, Image.BILINEAR),
-            transforms.RandomResizedCrop(int(image_size), (0.9, 1.0))] #*(255/225)
-        )
-        self._augment_tile = transforms.Compose([
-            #transforms.RandomResizedCrop(self.patch_size,(0.8, 1.0)),
-            transforms.Resize((self.patch_size, self.patch_size), Image.BILINEAR),
-            #transforms.ColorJitter(0.1, 0.1, 0.1, 0.0),
-            transforms.RandomGrayscale(0.1),
-            transforms.ToTensor(),
-            transforms.Normalize([0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])  # [0.229, 0.224, 0.225] [1 / 256., 1 / 256., 1 / 256.]
-        ])
+        self._image_transformer = img_transformer
+        self._augment_tile = tile_transformer
         if patches:
             self.returnFunc = lambda x: x
         else:
@@ -124,40 +112,11 @@ class JigsawDataset(data.Dataset):
 class JigsawTestDataset(JigsawDataset):
     def __init__(self, *args, **xargs):
         super().__init__(*args, **xargs)
-        self._image_transformer = transforms.Compose([
-            transforms.Resize(int(self.image_size), Image.BILINEAR),
-            #             transforms.RandomResizedCrop(255, (0.8,1.0))
-        ])
-        self.full_transformer = transforms.Compose([
-            transforms.Resize(int(self.image_size), Image.BILINEAR),
-            transforms.ToTensor(),
-            transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
-        ])
-        self._augment_tile = transforms.Compose([
-            #             transforms.RandomCrop(64),
-            transforms.Resize((self.patch_size, self.patch_size), Image.BILINEAR),
-            transforms.ToTensor(),
-            transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
-        ])
 
     def __getitem__(self, index):
         framename = self.data_path + '/' + self.names[index]
         img = Image.open(framename).convert('RGB')
-        return self.full_transformer(img), 0, int(self.labels[index])
-        # img = self._image_transformer(img)
-        #
-        # w = float(img.size[0]) / self.grid_size
-        # n_grids = self.grid_size ** 2
-        # tiles = [None] * n_grids
-        # for n in range(n_grids):
-        #     y = int(n / self.grid_size)
-        #     x = n % self.grid_size
-        #     tile = img.crop([x * w, y * w, (x + 1) * w, (y + 1) * w])
-        #     tile = self._augment_tile(tile)
-        #     tiles[n] = tile
-        #
-        # data = torch.stack(tiles, 0)
-        # return self.returnFunc(data), 0, int(self.labels[index])  # image data, permutation label, object label
+        return self._image_transformer(img), 0, int(self.labels[index])
 
 
 class JigsawTestDatasetMultiple(JigsawDataset):
