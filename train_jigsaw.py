@@ -18,6 +18,7 @@ def get_args():
     parser.add_argument("--target", choices=available_datasets, help="Target")
     parser.add_argument("--batch_size", "-b", type=int, default=64, help="Batch size")
     parser.add_argument("--image_size", type=int, default=225, help="Image size")
+    parser.add_argument("--limit_samples", default=None, type=int, help="If set, it will limit the number of training samples")
 
     parser.add_argument("--learning_rate", "-l", type=float, default=.01, help="Learning rate")
     parser.add_argument("--epochs", "-e", type=int, default=30, help="Number of epochs")
@@ -50,9 +51,10 @@ class Trainer:
         # print(self.model)
         self.source_loader, self.val_loader = data_helper.get_train_dataloader(args.source, args.jigsaw_n_classes, val_size=args.val_size,
                                                                                batch_size=args.batch_size, image_size=args.image_size,
-                                                                               bias_whole_image=args.bias_whole_image, patches=model.is_patch_based())
+                                                                               bias_whole_image=args.bias_whole_image, patches=model.is_patch_based(),
+                                                                               limit=args.limit_samples)
         self.target_loader = data_helper.get_val_dataloader(args.target, args.jigsaw_n_classes, image_size=args.image_size,
-                                                            multi=args.TTA, patches=model.is_patch_based())
+                                                            patches=model.is_patch_based())
         self.test_loaders = {"val": self.val_loader, "test": self.target_loader}
         self.len_dataloader = len(self.source_loader)
         print("Dataset size: train %d, val %d, test %d" % (len(self.source_loader.dataset), len(self.val_loader.dataset), len(self.target_loader.dataset)))

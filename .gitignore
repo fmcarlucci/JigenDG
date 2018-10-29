@@ -1,1 +1,3 @@
 models/pretrained/*
+*.ipynb
+data/txt_lists/*

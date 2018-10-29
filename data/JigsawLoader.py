@@ -60,7 +60,7 @@ class JigsawDataset(data.Dataset):
             self.patch_size = 64
         self._image_transformer = transforms.Compose([
             #             transforms.Resize(256, Image.BILINEAR),
-            transforms.RandomResizedCrop(int(image_size), (0.8, 1.0))] #*(255/225)
+            transforms.RandomResizedCrop(int(image_size), (0.9, 1.0))] #*(255/225)
         )
         self._augment_tile = transforms.Compose([
             #transforms.RandomResizedCrop(self.patch_size,(0.8, 1.0)),
@@ -128,6 +128,11 @@ class JigsawTestDataset(JigsawDataset):
             transforms.Resize(int(self.image_size), Image.BILINEAR),
             #             transforms.RandomResizedCrop(255, (0.8,1.0))
         ])
+        self.full_transformer = transforms.Compose([
+            transforms.Resize(int(self.image_size), Image.BILINEAR),
+            transforms.ToTensor(),
+            transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+        ])
         self._augment_tile = transforms.Compose([
             #             transforms.RandomCrop(64),
             transforms.Resize((self.patch_size, self.patch_size), Image.BILINEAR),
@@ -138,20 +143,21 @@ class JigsawTestDataset(JigsawDataset):
     def __getitem__(self, index):
         framename = self.data_path + '/' + self.names[index]
         img = Image.open(framename).convert('RGB')
-        img = self._image_transformer(img)
-
-        w = float(img.size[0]) / self.grid_size
-        n_grids = self.grid_size ** 2
-        tiles = [None] * n_grids
-        for n in range(n_grids):
-            y = int(n / self.grid_size)
-            x = n % self.grid_size
-            tile = img.crop([x * w, y * w, (x + 1) * w, (y + 1) * w])
-            tile = self._augment_tile(tile)
-            tiles[n] = tile
-
-        data = torch.stack(tiles, 0)
-        return self.returnFunc(data), 0, int(self.labels[index])  # image data, permutation label, object label
+        return self.full_transformer(img), 0, int(self.labels[index])
+        # img = self._image_transformer(img)
+        #
+        # w = float(img.size[0]) / self.grid_size
+        # n_grids = self.grid_size ** 2
+        # tiles = [None] * n_grids
+        # for n in range(n_grids):
+        #     y = int(n / self.grid_size)
+        #     x = n % self.grid_size
+        #     tile = img.crop([x * w, y * w, (x + 1) * w, (y + 1) * w])
+        #     tile = self._augment_tile(tile)
+        #     tiles[n] = tile
+        #
+        # data = torch.stack(tiles, 0)
+        # return self.returnFunc(data), 0, int(self.labels[index])  # image data, permutation label, object label
 
 
 class JigsawTestDatasetMultiple(JigsawDataset):
