@@ -44,6 +44,8 @@ def get_args():
                         help="If true, the network will only try to classify the non scrambled images")
     parser.add_argument("--train_all", default=False, type=bool, help="If true, all network weights will be trained")
     parser.add_argument("--suffix", default="", help="Suffix for the logger")
+    parser.add_argument("--nesterov", default=False, type=bool, help="Use nesterov")
+    
     return parser.parse_args()
 
 
@@ -62,7 +64,7 @@ class Trainer:
         self.test_loaders = {"val": self.val_loader, "test": self.target_loader}
         self.len_dataloader = len(self.source_loader)
         print("Dataset size: train %d, val %d, test %d" % (len(self.source_loader.dataset), len(self.val_loader.dataset), len(self.target_loader.dataset)))
-        self.optimizer, self.scheduler = get_optim_and_scheduler(model, args.epochs, args.learning_rate, args.train_all)
+        self.optimizer, self.scheduler = get_optim_and_scheduler(model, args.epochs, args.learning_rate, args.train_all, nesterov=args.nesterov)
         self.jig_weight = args.jig_weight
         self.only_non_scrambled = args.classify_only_sane
         self.n_classes = args.n_classes
