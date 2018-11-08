@@ -1,6 +1,7 @@
 import argparse
 
 import torch
+from IPython.core.debugger import set_trace
 from torch import nn
 from torch.nn import functional as F
 from data import data_helper
@@ -70,6 +71,8 @@ class Trainer:
         self.n_classes = args.n_classes
         if args.target in args.source:
             self.target_id = args.source.index(args.target)
+            print("Target in source: %d" % self.target_id)
+            print(args.source)
         else:
             self.target_id = None
 
@@ -92,7 +95,7 @@ class Trainer:
             # domain_loss = criterion(domain_logit, d_idx)
             # domain_error = domain_loss.item()
             if self.only_non_scrambled:
-                if self.target_id:
+                if self.target_id is not None:
                     idx = (jig_l == 0) & (d_idx != self.target_id)
                     class_loss = criterion(class_logit[idx], class_l[idx])
                 else:

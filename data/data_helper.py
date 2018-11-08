@@ -104,5 +104,5 @@ def get_train_transformers(args):
 
 
 def get_val_transformer(args):
-    img_tr = [transforms.Resize(args.image_size), transforms.ToTensor(), transforms.Normalize([0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])]
+    img_tr = [transforms.Resize((args.image_size, args.image_size)), transforms.ToTensor(), transforms.Normalize([0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])]
     return transforms.Compose(img_tr)
