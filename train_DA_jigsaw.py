@@ -3,14 +3,14 @@ import argparse
 import torch
 from IPython.core.debugger import set_trace
 from torch import nn
-from torch.nn import functional as F
+import torch.nn.functional as func
 from data import data_helper
-# from IPython.core.debugger import set_trace
 from data.data_helper import available_datasets
 from models import model_factory
 from optimizer.optimizer_helper import get_optim_and_scheduler
 from utils.Logger import Logger
 import numpy as np
+import itertools
 
 
 def get_args():
@@ -35,7 +35,9 @@ def get_args():
     parser.add_argument("--jigsaw_n_classes", "-jc", type=int, default=31, help="Number of classes for the jigsaw task")
     parser.add_argument("--network", choices=model_factory.nets_map.keys(), help="Which network to use", default="caffenet")
     parser.add_argument("--jig_weight", type=float, default=0.1, help="Weight for the jigsaw puzzle")
-    parser.add_argument("--ooo_weight", type=float, default=0, help="Weight for odd one out task")
+    parser.add_argument("--target_weight", type=float, default=0, help="Weight for target jigsaw task")
+    parser.add_argument("--entropy_weight", type=float, default=0, help="Weight for target entropy")
+    
     parser.add_argument("--tf_logger", type=bool, default=True, help="If true will save tensorboard compatible logs")
     parser.add_argument("--val_size", type=float, default="0.1", help="Validation size (between 0 and 1)")
     parser.add_argument("--folder_name", default=None, help="Used by the logger to save logs")
@@ -46,12 +48,12 @@ def get_args():
     parser.add_argument("--train_all", default=False, type=bool, help="If true, all network weights will be trained")
     parser.add_argument("--suffix", default="", help="Suffix for the logger")
     parser.add_argument("--nesterov", default=False, type=bool, help="Use nesterov")
-    
+
     return parser.parse_args()
 
 
-# def compute_losses(net_output, jig_l, class_l):
-#     return F.cross_entropy(net_output[0], jig_l), F.cross_entropy(net_output[1], class_l)
+def entropy_loss(x):
+    return torch.sum(-func.softmax(x, 1) * func.log_softmax(x, 1), 1).mean()
 
 class Trainer:
     def __init__(self, args, device):
@@ -60,69 +62,61 @@ class Trainer:
         model = model_factory.get_network(args.network)(jigsaw_classes=args.jigsaw_n_classes + 1, classes=args.n_classes)
         self.model = model.to(device)
         # print(self.model)
+        if args.target in args.source:
+            print("No need to include target in source, it is automatically done by this script")
+            k = args.source.index(args.target)
+            args.source = args.source[:k] + args.source[k + 1:]
+            print("Source: %s" % args.source)
         self.source_loader, self.val_loader = data_helper.get_train_dataloader(args, patches=model.is_patch_based())
+        self.target_jig_loader = data_helper.get_target_jigsaw_loader(args)
         self.target_loader = data_helper.get_val_dataloader(args, patches=model.is_patch_based())
         self.test_loaders = {"val": self.val_loader, "test": self.target_loader}
         self.len_dataloader = len(self.source_loader)
-        print("Dataset size: train %d, val %d, test %d" % (len(self.source_loader.dataset), len(self.val_loader.dataset), len(self.target_loader.dataset)))
+        print("Dataset size: train %d, target jig: %d, val %d, test %d" % (
+            len(self.source_loader.dataset), len(self.target_jig_loader.dataset), len(self.val_loader.dataset), len(self.target_loader.dataset)))
         self.optimizer, self.scheduler = get_optim_and_scheduler(model, args.epochs, args.learning_rate, args.train_all, nesterov=args.nesterov)
         self.jig_weight = args.jig_weight
+        self.target_weight = args.target_weight
+        self.target_entropy = args.entropy_weight
         self.only_non_scrambled = args.classify_only_sane
         self.n_classes = args.n_classes
-        if args.target in args.source:
-            self.target_id = args.source.index(args.target)
-            print("Target in source: %d" % self.target_id)
-            print(args.source)
-        else:
-            self.target_id = None
 
     def _do_epoch(self):
         criterion = nn.CrossEntropyLoss()
         self.model.train()
-        for it, ((data, jig_l, class_l), d_idx) in enumerate(self.source_loader):
+        for it, (source_batch, target_batch) in enumerate(zip(self.source_loader, itertools.cycle(self.target_jig_loader))):
+            (data, jig_l, class_l), d_idx = source_batch
             data, jig_l, class_l, d_idx = data.to(self.device), jig_l.to(self.device), class_l.to(self.device), d_idx.to(self.device)
-            # absolute_iter_count = it + self.current_epoch * self.len_dataloader
-            # p = float(absolute_iter_count) / self.args.epochs / self.len_dataloader
-            # lambda_val = 2. / (1. + np.exp(-10 * p)) - 1
-            # if domain_error > 2.0:
-            #     lambda_val  = 0
-            # print("Shutting down LAMBDA to prevent implosion")
+            tdata, tjig_l, _ = target_batch
+            tdata, tjig_l = tdata.to(self.device), tjig_l.to(self.device)
 
             self.optimizer.zero_grad()
 
-            jigsaw_logit, class_logit = self.model(data)  # , lambda_val=lambda_val)
+            jigsaw_logit, class_logit = self.model(data)
             jigsaw_loss = criterion(jigsaw_logit, jig_l)
-            # domain_loss = criterion(domain_logit, d_idx)
-            # domain_error = domain_loss.item()
+            target_jigsaw_logit, target_class_logit = self.model(tdata)
+            target_jigsaw_loss = criterion(target_jigsaw_logit, tjig_l)
+            target_entropy_loss = entropy_loss(target_class_logit[tjig_l==0])
             if self.only_non_scrambled:
-                if self.target_id is not None:
-                    idx = (jig_l == 0) & (d_idx != self.target_id)
-                    class_loss = criterion(class_logit[idx], class_l[idx])
-                else:
-                    class_loss = criterion(class_logit[jig_l == 0], class_l[jig_l == 0])
-
-            elif self.target_id:
-                class_loss = criterion(class_logit[d_idx != self.target_id], class_l[d_idx != self.target_id])
+                class_loss = criterion(class_logit[jig_l == 0], class_l[jig_l == 0])
             else:
                 class_loss = criterion(class_logit, class_l)
             _, cls_pred = class_logit.max(dim=1)
             _, jig_pred = jigsaw_logit.max(dim=1)
-            # _, domain_pred = domain_logit.max(dim=1)
-            loss = class_loss + jigsaw_loss * self.jig_weight  # + 0.1 * domain_loss
+
+            loss = class_loss + jigsaw_loss * self.jig_weight + target_jigsaw_loss * self.target_weight + target_entropy_loss * self.target_entropy
 
             loss.backward()
             self.optimizer.step()
 
             self.logger.log(it, len(self.source_loader),
-                            {"jigsaw": jigsaw_loss.item(), "class": class_loss.item()  # , "domain": domain_loss.item()
-                             },
-                            # ,"lambda": lambda_val},
+                            {"jigsaw": jigsaw_loss.item(), "class": class_loss.item(), 
+                             "t_jigsaw": target_jigsaw_loss.item(), "entropy": target_entropy_loss.item()},
                             {"jigsaw": torch.sum(jig_pred == jig_l.data).item(),
                              "class": torch.sum(cls_pred == class_l.data).item(),
-                             # "domain": torch.sum(domain_pred == d_idx.data).item()
                              },
                             data.shape[0])
-            del loss, class_loss, jigsaw_loss, jigsaw_logit, class_logit
+            del loss, class_loss, jigsaw_loss, jigsaw_logit, class_logit, target_jigsaw_logit, target_jigsaw_loss
 
         self.model.eval()
         with torch.no_grad():
@@ -150,27 +144,6 @@ class Trainer:
             class_correct += torch.sum(cls_pred == class_l.data)
             jigsaw_correct += torch.sum(jig_pred == jig_l.data)
         return jigsaw_correct, class_correct
-
-    def do_test_multi(self, loader):
-        jigsaw_correct = 0
-        class_correct = 0
-        single_correct = 0
-        for it, ((data, jig_l, class_l), d_idx) in enumerate(loader):
-            data, jig_l, class_l = data.to(self.device), jig_l.to(self.device), class_l.to(self.device)
-            n_permutations = data.shape[1]
-            class_logits = torch.zeros(n_permutations, data.shape[0], self.n_classes).to(self.device)
-            for k in range(n_permutations):
-                class_logits[k] = F.softmax(self.model(data[:, k])[1], dim=1)
-            class_logits[0] *= 4 * n_permutations  # bias more the original image
-            class_logit = class_logits.mean(0)
-            _, cls_pred = class_logit.max(dim=1)
-            jigsaw_logit, single_logit = self.model(data[:, 0])
-            _, jig_pred = jigsaw_logit.max(dim=1)
-            _, single_logit = single_logit.max(dim=1)
-            single_correct += torch.sum(single_logit == class_l.data)
-            class_correct += torch.sum(cls_pred == class_l.data)
-            jigsaw_correct += torch.sum(jig_pred == jig_l.data[:, 0])
-        return jigsaw_correct, class_correct, single_correct
 
     def do_training(self):
         self.logger = Logger(self.args, update_frequency=30)  # , "domain", "lambda"

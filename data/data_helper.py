@@ -104,5 +104,15 @@ def get_train_transformers(args):
 
 
 def get_val_transformer(args):
-    img_tr = [transforms.Resize((args.image_size, args.image_size)), transforms.ToTensor(), transforms.Normalize([0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])]
+    img_tr = [transforms.Resize((args.image_size, args.image_size)), transforms.ToTensor(),
+              transforms.Normalize([0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])]
     return transforms.Compose(img_tr)
+
+
+def get_target_jigsaw_loader(args):
+    img_transformer, tile_transformer = get_train_transformers(args)
+    name_train, _, labels_train, _ = get_split_dataset_info(join(dirname(__file__), 'txt_lists', '%s_train.txt' % args.target), args.val_size)
+    dataset = JigsawDataset(name_train, labels_train, patches=False, img_transformer=img_transformer,
+                            tile_transformer=tile_transformer, jig_classes=args.jigsaw_n_classes, bias_whole_image=args.bias_whole_image)
+    loader = torch.utils.data.DataLoader(dataset, batch_size=args.batch_size, shuffle=True, num_workers=4, pin_memory=True, drop_last=True)
+    return loader

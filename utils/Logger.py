@@ -9,15 +9,13 @@ _log_path = join(dirname(__file__), '../logs')
 
 # high level wrapper for tf_logger.TFLogger
 class Logger():
-    def __init__(self, args, log_items, update_frequency=10):
+    def __init__(self, args, update_frequency=10):
         self.current_epoch = 0
         self.max_epochs = args.epochs
         self.last_update = time()
         self.start_time = time()
         self._clean_epoch_stats()
         self.update_f = update_frequency
-        self.losses = {log_item:[] for log_item in log_items}
-        self.val_acc = {log_item:[] for log_item in log_items}
         folder, logname = self.get_name_from_args(args)
         log_path = join(_log_path, folder, logname)
         if args.tf_logger:
@@ -44,12 +42,10 @@ class Logger():
             past = self.epoch_stats.get(k, 0.0)
             self.epoch_stats[k] = past + v
         self.total += total_samples
-        acc_string = ", ".join(["%s : %.2f" % (k, 100*(v / total_samples)) for k, v in samples_right.items()])
+        acc_string = ", ".join(["%s : %.2f" % (k, 100 * (v / total_samples)) for k, v in samples_right.items()])
         if it % self.update_f == 0:
             print("%d/%d of epoch %d/%d %s - acc %s [bs:%d]" % (it, iters, self.current_epoch, self.max_epochs, loss_string,
                                                                 acc_string, total_samples))
-            for k, v in losses.items():
-                self.losses[k].append(v)
             # update tf log
             if self.tf_logger:
                 for k, v in losses.items(): self.tf_logger.scalar_summary("train/loss_%s" % k, v, self.current_iter)
@@ -59,10 +55,7 @@ class Logger():
         self.total = 0
 
     def log_test(self, phase, accuracies):
-        print("Accuracies on %s: " % phase + ", ".join(["%s : %.2f" % (k, v*100) for k, v in accuracies.items()]))
-        if phase == "test":  # TODO: remove this hacky stuff
-            for k, v in accuracies.items():
-                self.val_acc[k].append(v)
+        print("Accuracies on %s: " % phase + ", ".join(["%s : %.2f" % (k, v * 100) for k, v in accuracies.items()]))
         if self.tf_logger:
             for k, v in accuracies.items(): self.tf_logger.scalar_summary("%s/acc_%s" % (phase, k), v, self.current_iter)
 
@@ -79,7 +72,7 @@ class Logger():
         if args.folder_name:
             folder_name = join(args.folder_name, folder_name)
         name = "eps%d_bs%d_lr%g_class%d_jigClass%d_jigWeight%g" % (args.epochs, args.batch_size, args.learning_rate, args.n_classes,
-                                                                      args.jigsaw_n_classes, args.jig_weight)
+                                                                   args.jigsaw_n_classes, args.jig_weight)
         # if args.ooo_weight > 0:
         #     name += "_oooW%g" % args.ooo_weight
         if args.train_all:
@@ -90,6 +83,10 @@ class Logger():
             name += "_classifyOnlySane"
         if args.TTA:
             name += "_TTA"
+        try:
+            name += "_entropy%g_jig_tW%g" % (args.entropy_weight, args.target_weight)
+        except AttributeError:
+            pass
         if args.suffix:
             name += "_%s" % args.suffix
         name += "_%d" % int(time() % 1000)
