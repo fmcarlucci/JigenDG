@@ -88,6 +88,22 @@ def get_val_dataloader(args, patches=False):
     return loader
 
 
+def get_jigsaw_val_dataloader(args, patches=False):
+    names, labels = _dataset_info(join(dirname(__file__), 'txt_lists', '%s_test.txt' % args.target))
+    img_tr = [transforms.Resize((args.image_size, args.image_size))]
+    tile_tr = [transforms.ToTensor(), transforms.Normalize([0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])]
+    img_transformer = transforms.Compose(img_tr)
+    tile_transformer = transforms.Compose(tile_tr)
+    val_dataset = JigsawDataset(names, labels, patches=patches, img_transformer=img_transformer,
+                                      tile_transformer=tile_transformer, jig_classes=args.jigsaw_n_classes, bias_whole_image=args.bias_whole_image)
+    if args.limit_target and len(val_dataset) > args.limit_target:
+        val_dataset = Subset(val_dataset, args.limit_target)
+        print("Using %d subset of val dataset" % args.limit_target)
+    dataset = ConcatDataset([val_dataset])
+    loader = torch.utils.data.DataLoader(dataset, batch_size=args.batch_size, shuffle=False, num_workers=4, pin_memory=True, drop_last=False)
+    return loader
+
+
 def get_train_transformers(args):
     img_tr = [transforms.RandomResizedCrop(int(args.image_size), (args.min_scale, args.max_scale))]
     if args.random_horiz_flip > 0.0:
