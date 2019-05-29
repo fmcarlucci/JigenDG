@@ -27,7 +27,7 @@ A quick way is to use sed:
 
 ## Running experiments
 
-Run *run_PACS_photo.sh* to run the DG experiment on PACS, with photo as target.
+Run *run_PACS_photo.sh* to run the DG experiment on PACS, with photo as target (using AlexNet).
 
 **Note** that when using ResNet you should set the image_size to **222**
 An example on how to get ResNet18 results on PACS, art_painting as target:
