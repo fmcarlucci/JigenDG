@@ -25,10 +25,8 @@ A quick way is to use sed:
 `for i in *.txt; do sed -i "s@/home/fmc/data/@/home/user/data/images/@g" $i; done`
 
 
-
-
-
-
 ## Running experiments
 
 Run *run_PACS_photo.sh* to run the DG experiment on PACS, with photo as target.
+
+**Note** that when using ResNet you should set the image_size to **222**
