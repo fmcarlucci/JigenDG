@@ -22,9 +22,9 @@ def get_args():
     # data aug stuff
     parser.add_argument("--min_scale", default=0.8, type=float, help="Minimum scale percent")
     parser.add_argument("--max_scale", default=1.0, type=float, help="Maximum scale percent")
-    parser.add_argument("--random_horiz_flip", default=0.0, help="Chance of random horizontal flip")
-    parser.add_argument("--jitter", default=0.0, help="Color jitter amount")
-    parser.add_argument("--tile_random_grayscale", default=0.1, help="Chance of randomly greyscaling a tile")
+    parser.add_argument("--random_horiz_flip", default=0.0, type=float, help="Chance of random horizontal flip")
+    parser.add_argument("--jitter", default=0.0, type=float, help="Color jitter amount")
+    parser.add_argument("--tile_random_grayscale", default=0.1, type=float, help="Chance of randomly greyscaling a tile")
     #
     parser.add_argument("--limit_source", default=None, type=int, help="If set, it will limit the number of training samples")
     parser.add_argument("--limit_target", default=None, type=int, help="If set, it will limit the number of testing samples")

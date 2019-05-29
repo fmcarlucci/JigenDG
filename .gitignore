@@ -2,3 +2,4 @@ models/pretrained/*
 *.ipynb
 data/txt_lists/*
 */__pycache__/*
+.idea/*
