@@ -105,7 +105,7 @@ def get_jigsaw_val_dataloader(args, patches=False):
 
 
 def get_train_transformers(args):
-    img_tr = [transforms.RandomResizedCrop(int(args.image_size), (args.min_scale, args.max_scale))]
+    img_tr = [transforms.RandomResizedCrop((int(args.image_size), int(args.image_size)), (args.min_scale, args.max_scale))]
     if args.random_horiz_flip > 0.0:
         img_tr.append(transforms.RandomHorizontalFlip(args.random_horiz_flip))
     if args.jitter > 0.0:

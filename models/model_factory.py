@@ -6,9 +6,6 @@ from models import resnet
 
 nets_map = {
     'caffenet': caffenet.caffenet,
-    'caffenet_fc7': caffenet.caffenet_fc7,
-    'caffenet_gap': caffenet.caffenet_gap,
-    'caffenet_patches': patch_based.caffenet_patches,
     'alexnet': alexnet.alexnet,
     'resnet18': resnet.resnet18,
     'resnet50': resnet.resnet50,
