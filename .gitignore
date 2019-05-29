@@ -3,3 +3,4 @@ models/pretrained/*
 data/txt_lists/*
 */__pycache__/*
 .idea/*
+logs/*
