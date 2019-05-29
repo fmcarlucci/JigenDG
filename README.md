@@ -3,7 +3,7 @@ Repository for the CVPR19 oral paper "Domain Generalization by Solving Jigsaw Pu
 
 
 ## SETUP
-Pytorch models will automatically download if needed. You can download the caffemodel we used for AlexNet from here https://www.filehosting.org/file/details/803193/alexnet_caffe.pth.tar or here https://www.mediafire.com/file/7whrg4yuut6fapn/alexnet_caffe.pth.tar/file
+Pytorch models will automatically download if needed. You can download the caffemodel we used for AlexNet from here https://drive.google.com/file/d/1wUJTH1Joq2KAgrUDeKJghP1Wf7Q9w4z-/view?usp=sharing
 
 Once downloaded, move it into models/pretrained/alexnet_caffe.pth.tar
 
