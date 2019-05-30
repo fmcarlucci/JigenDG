@@ -19,10 +19,10 @@ pacs_datasets = ["art_painting", "cartoon", "photo", "sketch"]
 office_datasets = ["amazon", "dslr", "webcam"]
 digits_datasets = [mnist, mnist, svhn, usps]
 available_datasets = office_datasets + pacs_datasets + vlcs_datasets + digits_datasets
-office_paths = {dataset: "/home/enoon/data/images/office/%s" % dataset for dataset in office_datasets}
-pacs_paths = {dataset: "/home/enoon/data/images/PACS/kfold/%s" % dataset for dataset in pacs_datasets}
-vlcs_paths = {dataset: "/home/enoon/data/images/VLCS/%s/test" % dataset for dataset in pacs_datasets}
-paths = {**office_paths, **pacs_paths, **vlcs_paths}
+#office_paths = {dataset: "/home/enoon/data/images/office/%s" % dataset for dataset in office_datasets}
+#pacs_paths = {dataset: "/home/enoon/data/images/PACS/kfold/%s" % dataset for dataset in pacs_datasets}
+#vlcs_paths = {dataset: "/home/enoon/data/images/VLCS/%s/test" % dataset for dataset in pacs_datasets}
+#paths = {**office_paths, **pacs_paths, **vlcs_paths}
 
 dataset_std = {mnist: (0.30280363, 0.30280363, 0.30280363),
                mnist_m: (0.2384788, 0.22375608, 0.24496263),
