@@ -1,9 +1,21 @@
+![JIGEN](https://github.com/fmcarlucci/JigenDG/blob/master/copertina_v2-1.png)
+
 # JigenDG
-Repository for the CVPR19 oral paper "Domain Generalization by Solving Jigsaw Puzzles"
+Repository for the CVPR19 oral paper "[Domain Generalization by Solving Jigsaw Puzzles](https://arxiv.org/pdf/1903.06864.pdf)".
+To cite, please use:
+```
+@inproceedings{carlucci2019domain,
+  title={Domain Generalization by Solving Jigsaw Puzzles},
+  author={Carlucci, Fabio Maria and D'Innocente, Antonio and Bucci, Silvia and Caputo, Barbara and Tommasi, Tatiana},
+  booktitle={CVPR},
+  year={2019}
+}
+```
 
 
 ## SETUP
-Pytorch models will automatically download if needed. You can download the caffemodel we used for AlexNet from here: https://www.filehosting.org/file/details/803193/alexnet_caffe.pth.tar
+Pytorch models will automatically download if needed. You can download the caffemodel we used for AlexNet from here https://drive.google.com/file/d/1wUJTH1Joq2KAgrUDeKJghP1Wf7Q9w4z-/view?usp=sharing
+
 Once downloaded, move it into models/pretrained/alexnet_caffe.pth.tar
 
 Once you have download the data for the different experiments, you must update the files in data/txt_list to match the actual location of your files.
