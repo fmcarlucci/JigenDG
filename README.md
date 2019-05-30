@@ -1,4 +1,4 @@
-![JIGEN](https://github.com/fmcarlucci/JigenDG/blob/master/copertina_v2-1.png)
+![JIGEN](https://github.com/fmcarlucci/JigenDG/blob/master/jigsaw2-1.png)
 
 # JigenDG
 Repository for the CVPR19 oral paper "[Domain Generalization by Solving Jigsaw Puzzles](https://arxiv.org/pdf/1903.06864.pdf)".
