@@ -40,12 +40,12 @@ def get_args():
     parser.add_argument("--val_size", type=float, default="0.1", help="Validation size (between 0 and 1)")
     parser.add_argument("--folder_name", default=None, help="Used by the logger to save logs")
     parser.add_argument("--bias_whole_image", default=None, type=float, help="If set, will bias the training procedure to show more often the whole image")
-    parser.add_argument("--TTA", type=bool, default=False, help="Activate test time data augmentation")
-    parser.add_argument("--classify_only_sane", default=False, type=bool,
+    parser.add_argument("--TTA", type=bool, action='store_true', help="Activate test time data augmentation")
+    parser.add_argument("--classify_only_sane", action='store_true', type=bool,
                         help="If true, the network will only try to classify the non scrambled images")
-    parser.add_argument("--train_all", default=False, type=bool, help="If true, all network weights will be trained")
+    parser.add_argument("--train_all", action='store_true', type=bool, help="If true, all network weights will be trained")
     parser.add_argument("--suffix", default="", help="Suffix for the logger")
-    parser.add_argument("--nesterov", default=False, type=bool, help="Use nesterov")
+    parser.add_argument("--nesterov", action='store_true', type=bool, help="Use nesterov")
     
     return parser.parse_args()
 
