@@ -1,5 +1,7 @@
 import argparse
 
+import os
+
 import torch
 from IPython.core.debugger import set_trace
 from torch import nn
@@ -40,13 +42,15 @@ def get_args():
     parser.add_argument("--val_size", type=float, default="0.1", help="Validation size (between 0 and 1)")
     parser.add_argument("--folder_name", default=None, help="Used by the logger to save logs")
     parser.add_argument("--bias_whole_image", default=None, type=float, help="If set, will bias the training procedure to show more often the whole image")
-    parser.add_argument("--TTA", type=bool, action='store_true', help="Activate test time data augmentation")
-    parser.add_argument("--classify_only_sane", action='store_true', type=bool,
+    parser.add_argument("--TTA", action='store_true', help="Activate test time data augmentation")
+    parser.add_argument("--classify_only_sane", action='store_true',
                         help="If true, the network will only try to classify the non scrambled images")
-    parser.add_argument("--train_all", action='store_true', type=bool, help="If true, all network weights will be trained")
+    parser.add_argument("--train_all", action='store_true', help="If true, all network weights will be trained")
     parser.add_argument("--suffix", default="", help="Suffix for the logger")
-    parser.add_argument("--nesterov", action='store_true', type=bool, help="Use nesterov")
+    parser.add_argument("--nesterov", action='store_true', help="Use nesterov")
     
+    parser.add_argument("--jig_only", action = "store_true", help = "Disable classification loss")
+
     return parser.parse_args()
 
 
@@ -75,6 +79,9 @@ class Trainer:
             print(args.source)
         else:
             self.target_id = None
+        self.best_val_jigsaw = 0.0
+        folder_name, logname = Logger.get_name_from_args(args)
+        self.save_folder = os.path.join("logs", folder_name, logname)
 
     def _do_epoch(self):
         criterion = nn.CrossEntropyLoss()
@@ -107,8 +114,13 @@ class Trainer:
                 class_loss = criterion(class_logit, class_l)
             _, cls_pred = class_logit.max(dim=1)
             _, jig_pred = jigsaw_logit.max(dim=1)
+
+            if self.args.jig_only:
+                class_loss = torch.Tensor([0.0])
+                loss = jigsaw_loss
             # _, domain_pred = domain_logit.max(dim=1)
-            loss = class_loss + jigsaw_loss * self.jig_weight  # + 0.1 * domain_loss
+            else:
+                loss = class_loss + jigsaw_loss * self.jig_weight  # + 0.1 * domain_loss
 
             loss.backward()
             self.optimizer.step()
@@ -123,7 +135,7 @@ class Trainer:
                              },
                             data.shape[0])
             del loss, class_loss, jigsaw_loss, jigsaw_logit, class_logit
-
+        
         self.model.eval()
         with torch.no_grad():
             for phase, loader in self.test_loaders.items():
@@ -135,6 +147,12 @@ class Trainer:
                     jigsaw_correct, class_correct = self.do_test(loader)
                 jigsaw_acc = float(jigsaw_correct) / total
                 class_acc = float(class_correct) / total
+
+                if phase == "val" and (jigsaw_acc > self.best_val_jigsaw):
+                    self.best_val_jigsaw = jigsaw_acc
+                    torch.save(self.model.state_dict(), os.path.join(self.save_folder, 
+                        "best_model_{}.pth".format(self.current_epoch)))
+
                 self.logger.log_test(phase, {"jigsaw": jigsaw_acc, "class": class_acc})
                 self.results[phase][self.current_epoch] = class_acc
 
@@ -190,6 +208,10 @@ class Trainer:
 def main():
     args = get_args()
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    if args.jig_only:
+        print("Training only Jigsaw head, classification head disabled.")
+
     trainer = Trainer(args, device)
     trainer.do_training()
 
