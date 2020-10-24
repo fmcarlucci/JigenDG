@@ -80,6 +80,7 @@ class Trainer:
         else:
             self.target_id = None
         self.best_val_jigsaw = 0.0
+        self.best_jigsaw_loss = 10000
         folder_name, logname = Logger.get_name_from_args(args)
         self.save_folder = os.path.join("logs", folder_name, logname)
 
@@ -122,6 +123,12 @@ class Trainer:
             else:
                 loss = class_loss + jigsaw_loss * self.jig_weight  # + 0.1 * domain_loss
 
+            if self.args.jig_only and (loss < self.best_jigsaw_loss):
+                self.best_jigsaw_loss = loss
+                print("Saving new best at epoch: {}".format(self.current_epoch))
+                torch.save(self.model.state_dict(), os.path.join(self.save_folder, 
+                    "best_model.pth"))
+
             loss.backward()
             self.optimizer.step()
 
@@ -148,10 +155,11 @@ class Trainer:
                 jigsaw_acc = float(jigsaw_correct) / total
                 class_acc = float(class_correct) / total
 
-                if phase == "val" and (jigsaw_acc > self.best_val_jigsaw):
+                if not self.args.jig_only and phase == "val" and (jigsaw_acc > self.best_val_jigsaw):
                     self.best_val_jigsaw = jigsaw_acc
+                    print("Saving new best at epoch: {}".format(self.current_epoch))
                     torch.save(self.model.state_dict(), os.path.join(self.save_folder, 
-                        "best_model_{}.pth".format(self.current_epoch)))
+                        "best_model.pth"))
 
                 self.logger.log_test(phase, {"jigsaw": jigsaw_acc, "class": class_acc})
                 self.results[phase][self.current_epoch] = class_acc
