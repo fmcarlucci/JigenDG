@@ -15,7 +15,7 @@ synth = 'synth'
 usps = 'usps'
 
 vlcs_datasets = ["CALTECH", "LABELME", "PASCAL", "SUN"]
-pacs_datasets = ["art", "cartoon", "photo", "sketch"]
+pacs_datasets = ["art_painting", "cartoon", "photo", "sketch"]
 office_datasets = ["amazon", "dslr", "webcam"]
 digits_datasets = [mnist, mnist, svhn, usps]
 available_datasets = office_datasets + pacs_datasets + vlcs_datasets + digits_datasets
