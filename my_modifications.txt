@@ -1,0 +1,54 @@
+Rename art_painting to art in:
+	Original PACS folder
+	Code: data/data_helper.py
+
+	for i in *.txt; do sed -i "s@/home/fmc/data/PACS/kfold/@/DATA1/vaasudev_narayanan/datasets/StylizedPACS/sketch_target/@g" $i; done
+
+	for i in *.txt; do sed -i "s@/DATA1/vaasudev_narayanan/datasets/StylizedPACS/sketch_target/art_painting/@/DATA1/vaasudev_narayanan/datasets/StylizedPACS/sketch_target/art/@g" $i; done
+
+	mv art_painting_test.txt art_test.txt
+	mv art_painting_train.txt art_train.txt
+
+	for i in *.txt; do sed -i "s@/DATA1/vaasudev_narayanan/datasets/StylizedPACS/sketch_target/sketch/@/DATA1/vaasudev_narayanan/datasets/PACS/kfold/sketch/@g" $i; done
+
+	https://github.com/tensorflow/tensorboard/issues/1862
+
+vaasudev/PACS -> vaasudev/StylizedPACS
+
+---
+Sketch as target: DG
+
+for i in *.txt; do sed -i "s@/DATA1/vaasudev_narayanan/datasets/StylizedPACS/sketch_target/@/DATA1/vaasudev_narayanan/datasets/StylizedPACS/sketch_target/sketch_target/@g" $i; done
+
+for i in *.txt; do sed -i "s@/DATA1/vaasudev_narayanan/datasets/StylizedPACS/sketch_target/@/DATA1/vaasudev_narayanan/datasets/StylizedPACS/cartoon_target/@g" $i; done
+
+for i in *.txt; do sed -i "s@/DATA1/vaasudev_narayanan/datasets/StylizedPACS/cartoon_target/@/DATA1/vaasudev_narayanan/datasets/StylizedPACS/art_target/@g" $i; done
+
+for i in *.txt; do sed -i "s@/DATA1/vaasudev_narayanan/datasets/StylizedPACS/art_target/@/DATA1/vaasudev_narayanan/datasets/StylizedPACS/photo_target/@g" $i; done
+
+----
+
+
+for i in *.txt; do sed -i "s@/DATA1/vaasudev_narayanan/datasets/PACS/kfold/@/DATA1/vaasudev_narayanan/datasets/StylizedPACS/sketch_target/@g" $i; done
+
+for i in *.txt; do sed -i "s@/DATA1/vaasudev_narayanan/datasets/StylizedPACS/sketch_target/sketch/@/DATA1/vaasudev_narayanan/datasets/PACS/kfold/sketch/@g" $i; done
+
+---
+Photo as target: DG
+for i in *.txt; do sed -i "s@/DATA1/vaasudev_narayanan/datasets/PACS/kfold/sketch/@/DATA1/vaasudev_narayanan/datasets/StylizedPACS/sketch_target/sketch/@g" $i; done
+
+for i in *.txt; do sed -i "s@/DATA1/vaasudev_narayanan/datasets/StylizedPACS/sketch_target/photo/@/DATA1/vaasudev_narayanan/datasets/PACS/kfold/photo/@g" $i; done
+
+---
+Art as target: DG
+for i in *.txt; do sed -i "s@/DATA1/vaasudev_narayanan/datasets/PACS/kfold/photo/@/DATA1/vaasudev_narayanan/datasets/StylizedPACS/sketch_target/photo/@g" $i; done
+
+for i in *.txt; do sed -i "s@/DATA1/vaasudev_narayanan/datasets/StylizedPACS/sketch_target/art/@/DATA1/vaasudev_narayanan/datasets/PACS/kfold/art/@g" $i; done
+
+---
+Cartoon as target: DG
+for i in *.txt; do sed -i "s@/DATA1/vaasudev_narayanan/datasets/PACS/kfold/art/@/DATA1/vaasudev_narayanan/datasets/StylizedPACS/sketch_target/art/@g" $i; done
+
+for i in *.txt; do sed -i "s@/DATA1/vaasudev_narayanan/datasets/StylizedPACS/sketch_target/cartoon/@/DATA1/vaasudev_narayanan/datasets/PACS/kfold/cartoon/@g" $i; done
+---
+
