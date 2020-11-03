@@ -78,15 +78,17 @@ def load_data(pkl_file):
         data = pickle.load(handle)
     return data
 
-def cluster_and_eval(tr_data, tr_labels, te_data, te_labels):
+def cluster(data):
 
-    kmeans = KMeans(n_clusters=7,max_iter=300, random_state=0).fit(tr_data)
+    kmeans = KMeans(n_clusters=7,max_iter=300, random_state=0).fit(data)
+    return kmeans
 
-    te_clusters = kmeans.predict(te_data)
+def evaluate_clustering(model, data, labels):
 
-    acc_v, acc_i = calculate_acc(te_clusters, te_labels)
-    nmi_v = calculate_nmi(te_clusters, te_labels)
-    ari_v = calculate_ari(te_clusters, te_labels)
+    clusters = model.predict(data)
+    acc_v, acc_i = calculate_acc(clusters, labels)
+    nmi_v = calculate_nmi(clusters, labels)
+    ari_v = calculate_ari(clusters, labels)
     print("Accuracy %f NMI %f ARI %f" % (acc_v, nmi_v, ari_v))
     return acc_v, nmi_v, ari_v
 
@@ -98,21 +100,27 @@ def shuffle(x, y):
 
 if __name__ == "__main__":
 
-    root = '/content/drive/My Drive/Codes/JigenDG/logs/sketch_target_jigsaweval/art-cartoon-photo_to_sketch'
-    pkl_file = 'sketch_data.pkl'
+    root = '/content/drive/My Drive/Codes/JigenDG/logs/cartoon_target_stylizedjigsaw/art-photo-sketch_to_cartoon'
+    pkl_file = 'act_labels.pkl'
     data = load_data(osp.join(root, pkl_file))
-
     features = data['features']
     labels = data['labels']
-
     features, labels = shuffle(features, labels)
-    split = int(len(labels)*0.6)
-    tr_features = features[:split]
-    tr_labels = labels[:split]
-    te_features = features[split:]
-    te_labels = labels[split:]
+    split = 0 #Use 0 to use all the data
+    if split:
+      count = int(len(labels)*split)
+      tr_features = features[:count]
+      tr_labels = labels[:count]
+      te_features = features[count:]
+      te_labels = labels[count:]
+    else:
+      tr_features = features
+      te_features = features
+      te_labels = labels
 
-    cluster_and_eval(tr_features, tr_labels, te_features, te_labels)
+    model = cluster(tr_features)
+    evaluate_clustering(model, te_features, te_labels)
+
 
     
     
