@@ -116,7 +116,7 @@ pyzmq==16.0.3
 qtconsole==4.3.1
 regex==2017.4.5
 requests==2.20.0
-rsa==3.4.2
+rsa==4.1
 s3transfer==0.1.12
 scikit-learn==0.19.1
 scipy==1.0.0
