@@ -111,7 +111,7 @@ PySocks==1.6.7
 python-dateutil==2.6.1
 python-utils==2.2.0
 pytz==2017.3
-PyYAML==5.1
+PyYAML==5.4
 pyzmq==16.0.3
 qtconsole==4.3.1
 regex==2017.4.5
