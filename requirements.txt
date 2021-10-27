@@ -20,7 +20,7 @@ cssselect==1.0.3
 cycler==0.10.0
 cymem==1.31.2
 cytoolz==0.8.2
-dask==0.16.1
+dask==2021.10.0
 decorator==4.2.1
 dill==0.2.7.1
 distributed==1.20.2
