@@ -56,7 +56,7 @@ jupyter-nbextensions-configurator==0.4.0
 kaggle-cli==0.12.13
 Keras==2.1.4
 locket==0.2.0
-lxml==4.1.1
+lxml==4.6.5
 Markdown==2.6.11
 MarkupSafe==1.0
 matplotlib==2.1.2
