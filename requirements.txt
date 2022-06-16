@@ -70,7 +70,7 @@ murmurhash==0.28.0
 nbconvert==5.3.1
 nbformat==4.4.0
 nop==0.1.1
-notebook==5.7.8
+notebook==6.4.12
 numexpr==2.6.4
 numpy==1.14.0
 oauth2client==4.1.2
