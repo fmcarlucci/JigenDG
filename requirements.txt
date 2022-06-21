@@ -72,7 +72,7 @@ nbformat==4.4.0
 nop==0.1.1
 notebook==5.7.8
 numexpr==2.6.4
-numpy==1.14.0
+numpy==1.22.0
 oauth2client==4.1.2
 olefile==0.44
 opencv-python==3.4.0.12
