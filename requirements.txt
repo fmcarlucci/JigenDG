@@ -23,7 +23,7 @@ cytoolz==0.8.2
 dask==0.16.1
 decorator==4.2.1
 dill==0.2.7.1
-distributed==1.20.2
+distributed==2021.10.0
 docutils==0.14
 entrypoints==0.2.3
 feather-format==0.4.0
