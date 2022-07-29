@@ -61,7 +61,7 @@ Markdown==2.6.11
 MarkupSafe==1.0
 matplotlib==2.1.2
 MechanicalSoup==0.8.0
-mistune==0.8.3
+mistune==2.0.3
 mizani==0.4.4
 msgpack-numpy==0.4.1
 msgpack-python==0.5.1
